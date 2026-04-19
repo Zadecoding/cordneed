@@ -15,18 +15,31 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const plan = subscription?.plan || 'free';
 
   return (
-    <div className="min-h-screen flex" style={{ background: '#040816' }}>
-      {/* Sidebar — hidden on mobile, shown on lg+ */}
-      <div className="hidden lg:block flex-shrink-0">
-        <Sidebar plan={plan} />
-      </div>
+    <div className="min-h-screen w-full bg-[#040816] text-[#e2e8f0]" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)' }}>
+      {/* 
+        On large screens, we force a strict 260px column for the Sidebar, 
+        and the remaining space for the main content.
+      */}
+      <style suppressHydrationWarning>{`
+        @media (min-width: 1024px) {
+          .dashboard-grid { grid-template-columns: 260px minmax(0, 1fr) !important; }
+        }
+      `}</style>
+      
+      <div className="dashboard-grid min-h-screen w-full" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)' }}>
+        {/* Sidebar — hidden on mobile, fixed 260px on lg+ */}
+        <div className="hidden lg:block h-screen sticky top-0 overflow-y-auto border-r border-[#1e293b]" style={{ width: '260px' }}>
+          <Sidebar plan={plan} />
+        </div>
 
-      {/* Main content */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-x-hidden w-full">
-        <DashboardNavbar email={user.email} fullName={profile?.full_name} plan={plan} />
-        <main className="flex-1 overflow-y-auto p-0 m-0 w-full">
-          {children}
-        </main>
+        {/* Main content wrapper */}
+        <div className="flex flex-col min-w-0 h-screen overflow-hidden">
+          <DashboardNavbar email={user.email} fullName={profile?.full_name} plan={plan} />
+          
+          <main className="flex-1 overflow-y-auto w-full relative">
+            {children}
+          </main>
+        </div>
       </div>
     </div>
   );

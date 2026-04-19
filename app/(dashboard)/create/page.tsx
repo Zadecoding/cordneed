@@ -73,7 +73,7 @@ export default function CreatePage() {
   };
 
   return (
-    <div className="p-6 lg:p-10 mx-auto max-w-4xl w-full">
+    <div className="p-6 lg:p-10 w-full" style={{ padding: '32px', maxWidth: '896px', marginLeft: 'auto', marginRight: 'auto' }}>
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center gap-2 mb-2">

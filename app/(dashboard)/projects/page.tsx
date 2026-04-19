@@ -36,7 +36,7 @@ export default async function ProjectsPage() {
     .order('created_at', { ascending: false });
 
   return (
-    <div className="p-6 lg:p-10 mx-auto max-w-7xl w-full">
+    <div className="p-6 lg:p-10 w-full" style={{ padding: '32px', maxWidth: '100vw' }}>
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold font-[family-name:var(--font-space-grotesk)] text-white mb-1">
@@ -73,7 +73,7 @@ export default async function ProjectsPage() {
           </Link>
         </div>
       ) : (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
           {projects.map((project, i) => {
             const status = statusConfig[project.status as keyof typeof statusConfig] || statusConfig.pending;
             const gradient = gradients[i % gradients.length];

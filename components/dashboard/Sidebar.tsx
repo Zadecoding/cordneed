@@ -32,7 +32,7 @@ export default function Sidebar({ mobile, onClose, plan = 'free' }: SidebarProps
   };
 
   return (
-    <aside className="w-60 h-screen sticky top-0 flex flex-col flex-shrink-0 overflow-y-auto" style={{ background: '#060d1a', borderRight: '1px solid rgba(30,41,59,0.6)' }}>
+    <aside className="w-full h-full flex flex-col overflow-y-auto" style={{ background: '#060d1a' }}>
       {/* Logo */}
       <div className="flex items-center gap-2.5 px-5 py-5 border-b" style={{ borderColor: 'rgba(30,41,59,0.6)' }}>
         <Link href="/" className="flex items-center gap-2.5 no-underline">

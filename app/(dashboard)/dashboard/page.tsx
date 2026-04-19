@@ -45,7 +45,7 @@ export default async function DashboardPage() {
   const monthLimit = plan === 'free' ? 2 : Infinity;
 
   return (
-    <div className="p-6 lg:p-10 mx-auto max-w-7xl w-full">
+    <div className="p-6 lg:p-10 w-full" style={{ padding: '32px' }}>
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold font-[family-name:var(--font-space-grotesk)] text-white mb-1">
@@ -54,8 +54,8 @@ export default async function DashboardPage() {
         <p className="text-slate-400 text-sm">Here&apos;s what&apos;s happening with your projects.</p>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      {/* Stats - Fully fluid min/max grid that wraps safely without overlapping */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginBottom: '32px' }}>
         {[
           {
             label: 'Total Projects',
@@ -161,7 +161,7 @@ export default async function DashboardPage() {
             </Link>
           </div>
         ) : (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
             {projects.map((project) => {
               const status = statusConfig[project.status as keyof typeof statusConfig] || statusConfig.pending;
               return (

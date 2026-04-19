@@ -96,8 +96,8 @@ export default function PricingPageClient({ currentPlan, isLoggedIn }: Props) {
         <p className="text-slate-400">Start free, upgrade when you&apos;re ready to build more.</p>
       </div>
 
-      {/* Pricing Cards */}
-      <div className="grid md:grid-cols-2 gap-8 mb-12 w-full max-w-4xl mx-auto">
+      {/* Pricing Cards - Fluid layout instead of strict columns to prevent overlap */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '32px', marginBottom: '48px', width: '100%', maxWidth: '896px', marginLeft: 'auto', marginRight: 'auto' }}>
         {/* Free Plan */}
         <div className={`glass rounded-3xl p-7 border ${currentPlan === 'free' ? 'border-indigo-500/40' : 'border-slate-700'}`}>
           <div className="flex items-center gap-2 mb-4">

@@ -36,10 +36,7 @@ export default function Sidebar({ mobile, onClose, plan = 'free' }: SidebarProps
       {/* Logo */}
       <div className="flex items-center gap-2.5 px-5 py-5 border-b" style={{ borderColor: 'rgba(30,41,59,0.6)' }}>
         <Link href="/" className="flex items-center gap-2.5 no-underline">
-          <div className="w-8 h-8 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0"
-            style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', boxShadow: '0 4px 12px rgba(99,102,241,0.3)' }}>
-            <Smartphone className="w-4 h-4 text-white" />
-          </div>
+          <img src="/logo.png" alt="Cordneed" width={32} height={32} className="rounded-[10px] shadow-lg flex-shrink-0" style={{ objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)' }} />
           <span className="gradient-text font-bold text-[17px]" style={{ fontFamily: 'var(--font-space-grotesk)' }}>
             Cordneed
           </span>

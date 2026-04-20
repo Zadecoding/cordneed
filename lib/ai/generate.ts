@@ -10,35 +10,20 @@ const MODEL_CASCADE = [
   'gemini-2.0-flash-lite', // last resort — fastest/lightest
 ];
 
-/** Sleep for ms milliseconds */
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+// Per-model attempt timeout — keeps total cascade well under Vercel's 60s ceiling
+const MODEL_TIMEOUT_MS = 18_000; // 18s × 3 attempts = 54s worst case
 
-/** Returns true when the error is a transient 503 / rate-limit (NOT 404 — those skip immediately) */
-function isRetryable(err: unknown): boolean {
-  const msg = err instanceof Error ? err.message : String(err);
-  if (msg.includes('404')) return false; // wrong model name — skip immediately
-  return msg.includes('503') || msg.toLowerCase().includes('high demand') || msg.includes('429');
-}
-
-/** Generate with a single model, retry up to maxRetries times on 503 */
-async function tryModel(modelName: string, prompt: string, maxRetries = 2): Promise<string> {
+/** Race a model call against a hard timeout */
+async function tryModelWithTimeout(modelName: string, prompt: string): Promise<string> {
   const model = genAI.getGenerativeModel({ model: modelName });
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      const result = await model.generateContent(prompt);
-      return result.response.text();
-    } catch (err) {
-      const isLast = attempt === maxRetries;
-      if (isRetryable(err) && !isLast) {
-        const delay = (attempt + 1) * 4000; // 4s, 8s
-        console.warn(`[AI] ${modelName} 503 – retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
-        await sleep(delay);
-      } else {
-        throw err; // non-retryable or out of retries → let cascade try next model
-      }
-    }
-  }
-  throw new Error(`${modelName} exhausted retries`);
+
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error(`${modelName} timed out after ${MODEL_TIMEOUT_MS / 1000}s`)), MODEL_TIMEOUT_MS)
+  );
+
+  const generatePromise = model.generateContent(prompt).then((r) => r.response.text());
+
+  return Promise.race([generatePromise, timeoutPromise]);
 }
 
 /** Parse + clean JSON from raw model output */
@@ -86,7 +71,7 @@ Generate a complete app for: ${prompt}`;
   for (const modelName of MODEL_CASCADE) {
     try {
       console.log(`[AI] Trying model: ${modelName}`);
-      const text = await tryModel(modelName, systemPrompt);
+      const text = await tryModelWithTimeout(modelName, systemPrompt);
       console.log(`[AI] Success with model: ${modelName}`);
       return parseModelOutput(text, prompt);
     } catch (err) {

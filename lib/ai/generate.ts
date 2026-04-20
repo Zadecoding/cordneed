@@ -2,6 +2,58 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
+// Models to try in order — primary, then fallbacks
+const MODEL_CASCADE = [
+  'gemini-2.5-flash',
+  'gemini-2.0-flash',
+  'gemini-1.5-pro',
+  'gemini-1.5-flash',
+];
+
+/** Sleep for ms milliseconds */
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Returns true when the error is a transient 503 / rate-limit */
+function isRetryable(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return msg.includes('503') || msg.toLowerCase().includes('high demand') || msg.includes('429');
+}
+
+/** Generate with a single model, retry up to maxRetries times on 503 */
+async function tryModel(modelName: string, prompt: string, maxRetries = 2): Promise<string> {
+  const model = genAI.getGenerativeModel({ model: modelName });
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const result = await model.generateContent(prompt);
+      return result.response.text();
+    } catch (err) {
+      const isLast = attempt === maxRetries;
+      if (isRetryable(err) && !isLast) {
+        const delay = (attempt + 1) * 4000; // 4s, 8s
+        console.warn(`[AI] ${modelName} 503 – retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
+        await sleep(delay);
+      } else {
+        throw err; // non-retryable or out of retries → let cascade try next model
+      }
+    }
+  }
+  throw new Error(`${modelName} exhausted retries`);
+}
+
+/** Parse + clean JSON from raw model output */
+function parseModelOutput(text: string, prompt: string): Record<string, string> {
+  let clean = text.trim();
+  if (clean.startsWith('```json')) clean = clean.slice(7);
+  if (clean.startsWith('```')) clean = clean.slice(3);
+  if (clean.endsWith('```')) clean = clean.slice(0, -3);
+  clean = clean.trim();
+  try {
+    return JSON.parse(clean);
+  } catch {
+    return generateFallbackTemplate(prompt);
+  }
+}
+
 export async function generateReactNativeApp(prompt: string, isPro: boolean): Promise<Record<string, string>> {
   const systemPrompt = `You are an expert React Native Expo developer. Generate a complete, production-ready React Native Expo project based on the user's description.
 
@@ -28,31 +80,25 @@ The JSON structure example:
 
 Generate a complete app for: ${prompt}`;
 
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-  const result = await model.generateContent(systemPrompt);
-  let text = result.response.text();
+  let lastError: unknown;
 
-  // Clean the response - remove any markdown wrapping
-  let cleanJson = text.trim();
-  if (cleanJson.startsWith('```json')) {
-    cleanJson = cleanJson.slice(7);
+  for (const modelName of MODEL_CASCADE) {
+    try {
+      console.log(`[AI] Trying model: ${modelName}`);
+      const text = await tryModel(modelName, systemPrompt);
+      console.log(`[AI] Success with model: ${modelName}`);
+      return parseModelOutput(text, prompt);
+    } catch (err) {
+      lastError = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(`[AI] ${modelName} failed: ${msg} — trying next model`);
+    }
   }
-  if (cleanJson.startsWith('```')) {
-    cleanJson = cleanJson.slice(3);
-  }
-  if (cleanJson.endsWith('```')) {
-    cleanJson = cleanJson.slice(0, -3);
-  }
-  cleanJson = cleanJson.trim();
 
-  try {
-    const files = JSON.parse(cleanJson);
-    return files;
-  } catch {
-    // If parsing fails, return a basic template
-    return generateFallbackTemplate(prompt);
-  }
+  // All models exhausted
+  throw lastError ?? new Error('All AI models failed. Please try again later.');
 }
+
 
 function generateFallbackTemplate(prompt: string): Record<string, string> {
   const appName = prompt.split(' ').slice(0, 3).join('').replace(/[^a-zA-Z]/g, '') || 'MyApp';

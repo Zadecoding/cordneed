@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Sparkles, Wand2, ChevronRight, Loader2, CheckCircle2 } from 'lucide-react';
+import { Sparkles, Wand2, ChevronRight, Loader2, CheckCircle2, ServerCrash } from 'lucide-react';
 import { toast } from 'sonner';
 
 const templates = [
@@ -34,6 +34,7 @@ export default function CreatePage() {
   const [loading, setLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [done, setDone] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,6 +43,7 @@ export default function CreatePage() {
     setLoading(true);
     setCurrentStep(0);
     setDone(false);
+    setErrorMsg(null);
 
     const stepInterval = setInterval(() => {
       setCurrentStep((prev) => {
@@ -68,7 +70,9 @@ export default function CreatePage() {
       clearInterval(stepInterval);
       setLoading(false);
       setCurrentStep(0);
-      toast.error(error instanceof Error ? error.message : 'Generation failed. Please try again.');
+      const message = error instanceof Error ? error.message : 'Generation failed. Please try again.';
+      setErrorMsg(message);
+      toast.error(message);
     }
   };
 
@@ -137,8 +141,32 @@ export default function CreatePage() {
           )}
         </div>
       )}
+      {/* Error UI */}
+      {errorMsg && !loading && (
+        <div className="glass overflow-hidden rounded-3xl border border-rose-500/30 p-8 mb-8 text-center shadow-2xl relative">
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-rose-500 via-orange-500 to-rose-500" />
+          <div className="relative w-16 h-16 mx-auto mb-5">
+            <div className="absolute inset-0 rounded-2xl bg-rose-500/20 blur-xl animate-pulse" />
+            <div className="relative flex items-center justify-center h-full bg-rose-500/10 border border-rose-500/30 rounded-2xl">
+              <ServerCrash className="w-8 h-8 text-rose-400 animate-bounce delay-150" />
+            </div>
+          </div>
+          <h3 className="text-xl font-bold text-white mb-2">Generation Overloaded</h3>
+          <p className="text-slate-300 text-sm mb-6 max-w-md mx-auto">
+            {errorMsg.toLowerCase().includes('high demand') 
+              ? "Google's AI models are currently experiencing extremely high demand. This is temporary. Please try again in a few moments."
+              : errorMsg}
+          </p>
+          <button
+            onClick={() => setErrorMsg(null)}
+            className="px-8 py-3 bg-white hover:bg-rose-50 border border-white rounded-xl text-sm font-bold text-rose-600 transition-all duration-200 shadow-[0_0_20px_rgba(244,63,94,0.3)] hover:shadow-[0_0_30px_rgba(244,63,94,0.5)]"
+          >
+            ← Back to Prompt
+          </button>
+        </div>
+      )}
 
-      {!loading && (
+      {!loading && !errorMsg && (
         <form onSubmit={handleGenerate} className="space-y-6">
           {/* Prompt */}
           <div className="glass rounded-3xl border border-slate-800 p-5">

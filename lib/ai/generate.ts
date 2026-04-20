@@ -3,19 +3,21 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 // Models to try in order — primary, then fallbacks
+// Names verified against v1beta ListModels endpoint
 const MODEL_CASCADE = [
-  'gemini-2.5-flash',
+  'gemini-2.5-flash-preview-04-17',
   'gemini-2.0-flash',
-  'gemini-1.5-pro',
-  'gemini-1.5-flash',
+  'gemini-1.5-flash-latest',
+  'gemini-1.5-pro-latest',
 ];
 
 /** Sleep for ms milliseconds */
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/** Returns true when the error is a transient 503 / rate-limit */
+/** Returns true when the error is a transient 503 / rate-limit (NOT 404 — those skip immediately) */
 function isRetryable(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err);
+  if (msg.includes('404')) return false; // wrong model name — skip immediately
   return msg.includes('503') || msg.toLowerCase().includes('high demand') || msg.includes('429');
 }
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { generateReactNativeApp } from '@/lib/ai/generate';
+export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
   try {

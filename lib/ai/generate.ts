@@ -4,7 +4,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 export async function generateReactNativeApp(prompt: string, isPro: boolean): Promise<Record<string, string>> {
   const model = genAI.getGenerativeModel({
-    model: isPro ? 'gemini-1.5-flash' : 'gemini-1.5-flash-8b',
+    model: 'gemini-1.5-flash',
   });
 
   const systemPrompt = `You are an expert React Native Expo developer. Generate a complete, production-ready React Native Expo project based on the user's description.

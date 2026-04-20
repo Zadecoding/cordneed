@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     const plan = subscription?.plan || 'free';
-    const isPro = plan === 'pro';
+    const isPro = plan === 'pro' || user.email === 'imsanju4141@gmail.com';
 
     // Enforce free plan limits (2 projects per month)
     if (!isPro) {

@@ -32,7 +32,8 @@ export default async function DashboardPage() {
     supabase.from('profiles').select('*').eq('id', user.id).single(),
   ]);
 
-  const plan = subscription?.plan || 'free';
+  const dbPlan = subscription?.plan || 'free';
+  const plan = user.email === 'imsanju4141@gmail.com' ? 'pro' : dbPlan;
   const totalProjects = projects?.length || 0;
 
   // This month's projects

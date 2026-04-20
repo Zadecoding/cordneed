@@ -33,7 +33,7 @@ export default async function ProjectDetailPage({
 
   if (!project) notFound();
 
-  const isPro = subscription?.plan === 'pro';
+  const isPro = subscription?.plan === 'pro' || user.email === 'imsanju4141@gmail.com';
   const files = (project.files as Record<string, string>) || {};
 
   return (

@@ -4,10 +4,10 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 // Models to try in order — verified live from ListModels API 2026-04-20
 const MODEL_CASCADE = [
-  'gemini-2.5-flash',      // primary — best quality
-  'gemini-2.5-flash-lite', // fallback — lighter version
-  'gemini-2.0-flash',      // fallback — stable 2.0
-  'gemini-2.0-flash-lite', // last resort — fastest/lightest
+  'gemini-1.5-flash-latest', // most reliable free tier quota
+  'gemini-1.5-pro-latest',
+  'gemini-2.5-flash',      // newer models might have limit: 0 on free tier
+  'gemini-2.0-flash',     
 ];
 
 // Per-model attempt timeout — keeps total cascade well under Vercel's 60s ceiling

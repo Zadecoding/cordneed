@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Eye, EyeOff, ArrowRight, UserPlus } from 'lucide-react';
+import { Eye, EyeOff, ArrowRight, UserPlus, Mail } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 
@@ -16,6 +16,7 @@ export default function SignupPage() {
   const [fullName, setFullName] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,9 +29,9 @@ export default function SignupPage() {
       await supabase.from('profiles').upsert({ id: data.user.id, email, full_name: fullName });
       await supabase.from('subscriptions').upsert({ user_id: data.user.id, plan: 'free', status: 'active' });
     }
-    toast.success('Account created! Welcome to Cordneed 🎉');
-    router.push('/dashboard');
-    router.refresh();
+    setLoading(false);
+    setSuccess(true);
+    toast.success('Registration successful. Please check your email.');
   };
 
   return (
@@ -44,8 +45,33 @@ export default function SignupPage() {
         boxShadow: '0 8px 48px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05)',
         backdropFilter: 'blur(20px)',
       }}>
-        {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: 28 }}>
+        {success ? (
+          <div style={{ textAlign: 'center', padding: '20px 0' }}>
+            <div style={{
+              width: 64, height: 64, borderRadius: 20,
+              background: 'rgba(52,211,153,0.1)',
+              border: '1px solid rgba(52,211,153,0.3)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              margin: '0 auto 24px',
+              boxShadow: '0 8px 32px rgba(52,211,153,0.2)',
+            }}>
+              <Mail style={{ width: 32, height: 32, color: '#34d399' }} />
+            </div>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#fff', marginBottom: 12, fontFamily: 'var(--font-lora)' }}>
+              Check your email
+            </h2>
+            <p style={{ fontSize: 15, color: '#94a3b8', lineHeight: 1.6, marginBottom: 24 }}>
+              We've sent a verification link to <br /> <strong style={{ color: '#fff' }}>{email}</strong>. <br /><br />
+              Please click the link in your email to activate your account and access the dashboard.
+            </p>
+            <p style={{ fontSize: 13, color: '#64748b' }}>
+              Didn't receive it? <button type="button" onClick={() => window.location.reload()} style={{ background: 'none', border: 'none', color: '#818cf8', fontWeight: 500, cursor: 'pointer' }}>Try signing up again</button>
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* Header */}
+            <div style={{ textAlign: 'center', marginBottom: 28 }}>
           <div style={{
             width: 48, height: 48, borderRadius: 14,
             background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
@@ -126,6 +152,8 @@ export default function SignupPage() {
           Already have an account?{' '}
           <Link href="/login" style={{ color: '#818cf8', fontWeight: 500, textDecoration: 'none' }}>Sign in</Link>
         </p>
+          </>
+        )}
       </div>
     </div>
   );

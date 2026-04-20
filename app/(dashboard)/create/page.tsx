@@ -60,8 +60,20 @@ export default function CreatePage() {
       });
       clearInterval(stepInterval);
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Generation failed');
+        const contentType = response.headers.get('content-type') || '';
+        let errorMessage = 'Generation failed';
+        try {
+          if (contentType.includes('application/json')) {
+            const errJson = await response.json();
+            errorMessage = errJson.message || errorMessage;
+          } else {
+            const errText = await response.text();
+            errorMessage = errText || errorMessage;
+          }
+        } catch {
+          // response body unreadable — use default message
+        }
+        throw new Error(errorMessage);
       }
       const { projectId } = await response.json();
       setDone(true);

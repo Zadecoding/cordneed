@@ -2,13 +2,12 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
-// Models to try in order — primary, then fallbacks
-// Names verified against v1beta ListModels endpoint
+// Models to try in order — verified live from ListModels API 2026-04-20
 const MODEL_CASCADE = [
-  'gemini-2.5-flash-preview-04-17',
-  'gemini-2.0-flash',
-  'gemini-1.5-flash-latest',
-  'gemini-1.5-pro-latest',
+  'gemini-2.5-flash',      // primary — best quality
+  'gemini-2.5-flash-lite', // fallback — lighter version
+  'gemini-2.0-flash',      // fallback — stable 2.0
+  'gemini-2.0-flash-lite', // last resort — fastest/lightest
 ];
 
 /** Sleep for ms milliseconds */

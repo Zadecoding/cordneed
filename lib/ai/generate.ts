@@ -3,10 +3,6 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 export async function generateReactNativeApp(prompt: string, isPro: boolean): Promise<Record<string, string>> {
-  const model = genAI.getGenerativeModel({
-    model: 'gemini-1.5-flash-latest',
-  });
-
   const systemPrompt = `You are an expert React Native Expo developer. Generate a complete, production-ready React Native Expo project based on the user's description.
 
 IMPORTANT RULES:
@@ -32,8 +28,27 @@ The JSON structure example:
 
 Generate a complete app for: ${prompt}`;
 
-  const result = await model.generateContent(systemPrompt);
-  const text = result.response.text();
+  const modelIds = [
+    'gemini-1.5-flash',
+    'gemini-1.5-flash-latest',
+    'gemini-1.5-pro',
+    'gemini-pro'
+  ];
+  
+  let text = '';
+  
+  for (const modelId of modelIds) {
+    try {
+      const model = genAI.getGenerativeModel({ model: modelId });
+      const result = await model.generateContent(systemPrompt);
+      text = result.response.text();
+      break; 
+    } catch (error: any) {
+      console.warn(`Model ${modelId} failed: ${error.message}`);
+      // If we exhausted all options, throw the final error
+      if (modelId === modelIds[modelIds.length - 1]) throw error;
+    }
+  }
 
   // Clean the response - remove any markdown wrapping
   let cleanJson = text.trim();

@@ -13,13 +13,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       {/* Header */}
       <header style={{ position: 'relative', zIndex: 10, padding: '20px 28px' }}>
         <Link href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
-          <div style={{
-            width: 32, height: 32, borderRadius: 10,
-            background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <Smartphone style={{ width: 16, height: 16, color: '#fff' }} />
-          </div>
+          <img src="/logo.png" alt="Cordneed" width={32} height={32} style={{ borderRadius: 10, objectFit: 'cover', boxShadow: '0 4px 12px rgba(244,63,94,0.3)', border: '1px solid rgba(255,255,255,0.1)' }} />
           <span className="gradient-text" style={{ fontWeight: 700, fontSize: 18, fontFamily: 'var(--font-space-grotesk)' }}>
             Cordneed
           </span>

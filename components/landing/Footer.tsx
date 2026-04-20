@@ -46,13 +46,7 @@ export default function Footer() {
           {/* Brand — wider */}
           <div style={{ gridColumn: 'span 2' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-              <div style={{
-                width: 32, height: 32, borderRadius: 10,
-                background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-                <Smartphone style={{ width: 16, height: 16, color: '#fff' }} />
-              </div>
+              <img src="/logo.png" alt="Cordneed" width={32} height={32} style={{ borderRadius: 10, objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)' }} />
               <span className="gradient-text" style={{ fontSize: 18, fontWeight: 700, fontFamily: 'var(--font-space-grotesk)' }}>
                 Cordneed
               </span>

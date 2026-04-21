@@ -95,33 +95,12 @@ const SAFE_AREA_SHIM = `
 export { SafeAreaView, SafeAreaProvider } from 'react-native';
 `;
 
-// Strip TS type annotations for JS sandpack execution
-function stripTypes(code: string): string {
-  return code
-    // Remove TypeScript type imports: import type ...
-    .replace(/^import\s+type\s+.*;\n?/gm, '')
-    // Remove inline type assertions: as SomeType
-    .replace(/\s+as\s+[A-Z][A-Za-z<>\[\]|&,\s]+(?=[,)\];\s])/g, '')
-    // Remove type/interface declarations
-    .replace(/^(export\s+)?(type|interface)\s+\w[\s\S]*?(?=\n\n|\nexport|\nfunction|\nconst|\nclass|$)/gm, '')
-    // Remove generic type params from function calls like useState<string>
-    .replace(/<[A-Z][A-Za-z<>\[\]|&,\s]*>/g, '')
-    // Remove return type annotations: ): ReturnType {
-    .replace(/\):\s*[A-Za-z<>\[\]|&,\s]+(?=\s*\{)/g, ') ')
-    // Remove parameter type annotations: (param: Type)
-    .replace(/(\w+)\s*\?\s*:\s*[A-Za-z<>\[\]|&.,\s|'"]+(?=[,)=])/g, '$1')
-    .replace(/(\w+)\s*:\s*[A-Za-z<>\[\]|&.,\s|'"]+(?=[,)=])/g, '$1')
-    // Remove const/let type annotations: const x: Type =
-    .replace(/(const|let|var)\s+(\w+)\s*:\s*[A-Za-z<>\[\]|&,\s]+\s*=/g, '$1 $2 =')
-    .trim();
-}
-
 function buildSandpackFiles(files: Record<string, string>): Record<string, string> {
   const result: Record<string, string> = {
-    '/react-native.js': { code: RN_SHIM } as any,
-    '/react-native-safe-area-context.js': { code: SAFE_AREA_SHIM } as any,
-    '/expo-status-bar.js': { code: `export const StatusBar = () => null;` } as any,
-    '/vector-icons.js': { code: `import React from 'react';\nexport const Ionicons = ({ color, size, style }) => <span style={{ color, fontSize: size, display: 'inline-block', lineHeight: 1, ...style }}>💠</span>;\nexport const MaterialIcons = Ionicons;\nexport const FontAwesome = Ionicons;\nexport const Feather = Ionicons;` } as any,
+    '/react-native.tsx': { code: RN_SHIM } as any,
+    '/react-native-safe-area-context.tsx': { code: SAFE_AREA_SHIM } as any,
+    '/expo-status-bar.tsx': { code: `export const StatusBar = () => null;` } as any,
+    '/vector-icons.tsx': { code: `import React from 'react';\nexport const Ionicons = ({ color, size, style }) => <span style={{ color, fontSize: size, display: 'inline-block', lineHeight: 1, ...style }}>💠</span>;\nexport const MaterialIcons = Ionicons;\nexport const FontAwesome = Ionicons;\nexport const Feather = Ionicons;` } as any,
   };
 
   // Collect all files (components, constants, screens)
@@ -137,13 +116,14 @@ function buildSandpackFiles(files: Record<string, string>): Record<string, strin
     if (match && match[1] !== '_layout') {
       const route = match[1];
       const name = route === 'index' ? 'Home' : route.charAt(0).toUpperCase() + route.slice(1).replace(/-/g, ' ');
-      screens.push({ route, name, path: '/' + path.replace(/\.(tsx|ts|jsx)$/, '.js') });
+      // Keep original extension or enforce .tsx
+      screens.push({ route, name, path: '/' + path.replace(/\.(jsx?|ts)$/, '.tsx') });
     }
 
-    // Skip Expo Router layout files as we use a custom App.js
+    // Skip Expo Router layout files as we use a custom App.tsx
     if (path.includes('_layout')) continue;
 
-    const jsPath = '/' + path.replace(/\.(tsx|ts|jsx)$/, '.js');
+    const jsPath = '/' + path.replace(/\.(jsx?|ts)$/, '.tsx');
     let code = content
       // Remove all Expo Router imports gracefully without deleting the rest of the line unecessarily
       .replace(/import\s+.*?from\s+['"]expo-router['"];?\n?/gm, '')
@@ -160,10 +140,9 @@ function buildSandpackFiles(files: Record<string, string>): Record<string, strin
       .replace(/from\s+['"]expo-status-bar['"]/g, "from 'expo-status-bar'");
 
     // For any remaining file, rewrite import paths that point to our shims so Sandpack resolves them from root.
-    // e.g., 'react-native' -> '/react-native.js'
-    code = code.replace(/from\s+['"](react-native|react-native-safe-area-context|vector-icons|expo-status-bar)['"]/g, "from '/$1.js'");
+    code = code.replace(/from\s+['"](react-native|react-native-safe-area-context|vector-icons|expo-status-bar)['"]/g, "from '/$1.tsx'");
 
-    result[jsPath] = { code: stripTypes(code) } as any;
+    result[jsPath] = { code } as any;
   }
 
   // Fallback styling
@@ -226,7 +205,7 @@ export default function App() {
 }
 `;
 
-  result['/App.js'] = { code: appJs } as any;
+  result['/App.tsx'] = { code: appJs } as any;
   return result;
 }
 
@@ -268,14 +247,14 @@ export default function AppPreview({ projectId, projectName, files }: AppPreview
         <Sandpack
           key={key}
           files={sandpackFiles}
-          template="react"
+          template="react-ts"
           options={{
             showNavigator: false,
             showTabs: false,
             showLineNumbers: false,
             showInlineErrors: true,
-            visibleFiles: ['/App.js'],
-            activeFile: '/App.js',
+            visibleFiles: ['/App.tsx'],
+            activeFile: '/App.tsx',
             layout: 'preview',
           }}
           customSetup={{
@@ -283,7 +262,7 @@ export default function AppPreview({ projectId, projectName, files }: AppPreview
               react: '18.2.0',
               'react-dom': '18.2.0',
             },
-            entry: '/App.js',
+            entry: '/App.tsx',
           }}
           theme="dark"
         />

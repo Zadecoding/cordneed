@@ -124,14 +124,9 @@ export async function POST(
     // Build prompt and call AI (Mistral only)
     const editPrompt = buildEditPrompt(changeRequest.trim(), existingFiles);
 
-    // Try mistral-small first (fast)
-    let changedFiles = await callMistralEdit(editPrompt, 'mistral-small-latest', 45_000);
-    
-    // Fallback to mistral-large if small fails
-    if (!changedFiles || Object.keys(changedFiles).length === 0) {
-      console.log('[Edit] mistral-small failed or no files modified, falling back to mistral-large');
-      changedFiles = await callMistralEdit(editPrompt, 'mistral-large-latest', 58_000);
-    }
+    // Use mistral-large-latest only. Edits are complex and need high reasoning.
+    // Give it 55 seconds (Vercel hard limit is 60s total, so cascasing is impossible)
+    const changedFiles = await callMistralEdit(editPrompt, 'mistral-large-latest', 55_000);
 
     if (!changedFiles || Object.keys(changedFiles).length === 0) {
       return NextResponse.json(

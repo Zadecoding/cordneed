@@ -23,28 +23,47 @@ export async function analyzePrompt(prompt: string, designLink?: string): Promis
     designContent = await fetchDesignContent(designLink.trim());
   }
 
-  const designInstructions = designContent 
+  const designInstructions = designContent
     ? `\nDESIGN REFERENCE CONTENT:\n"""\n${designContent}\n"""\n\nCRITICAL: The user provided the above design reference. You MUST base your architecture (screens, features, colorTheme, primaryColor) completely off of this design. Extract the relevant color palette and screen structures from the design.`
     : (designLink ? `\nCRITICAL: The user provided a design reference URL: ${designLink}. Use this as context if possible.` : "");
 
-  const systemPrompt = `You are an expert mobile app architect. Analyze the user's app idea and return a JSON architecture blueprint.
+  const systemPrompt = `You are an expert mobile app architect, product designer, and UI motion strategist. Analyze the user's app idea and return a JSON architecture blueprint optimized for a beautiful, modern, highly animated, premium-looking app UI.
 
 RULES:
-1. Return ONLY valid JSON — no markdown, no explanation, no code blocks.
-2. The JSON must match this exact shape:
+
+1.Return ONLY valid JSON — no markdown, no explanation, no code blocks.
+2.The JSON must match this exact shape:
 {
-  "appType": "one of: e-commerce | social | productivity | fitness | education | finance | entertainment | travel | food | other",
-  "suggestedName": "A short, catchy app name",
-  "description": "One sentence describing what the app does",
-  "screens": ["Screen1", "Screen2", "Screen3"],
-  "features": ["feature1", "feature2", "feature3"],
-  "complexity": "simple | moderate | complex",
-  "colorTheme": "A brief color palette description e.g. 'dark purple with gold accents'",
-  "primaryColor": "A hex color code e.g. #6C3DE8"
+"appType": "one of: e-commerce | social | productivity | fitness | education | finance | entertainment | travel | food | other",
+"suggestedName": "A short, catchy app name",
+"description": "One sentence describing what the app does",
+"screens": ["Screen1", "Screen2", "Screen3"],
+"features": ["feature1", "feature2", "feature3"],
+"complexity": "simple | moderate | complex",
+"colorTheme": "A brief color palette description e.g. 'dark purple with gold accents'",
+"primaryColor": "A hex color code e.g. #6C3DE8"
 }
-3. screens: 3-8 main screens the app will have
-4. features: 3-8 key technical features (auth, payments, camera, maps, etc.)
-5. complexity: simple = 1-3 screens, moderate = 4-6, complex = 7+
+3.screens: 3-8 main screens the app will have.
+4.features: 3-8 key technical features.
+5.complexity: simple = 1-3 screens, moderate = 4-6, complex = 7+.
+6.The output must be designed for a premium UI experience, meaning:
+ .modern visual hierarchy
+ .smooth transitions
+ .elegant spacing
+ .glassmorphism / gradient / soft-shadow friendly design
+ .strong hero section
+ .animated cards, buttons, and screen transitions
+ .polished onboarding and empty states
+ .visually rich but not cluttered
+7.Prefer UI that feels:
+ .futuristic
+ .clean
+ .high-end
+ .mobile-first
+ .App Store quality
+8.For every app idea, choose a colorTheme and primaryColor that match the app’s mood and improve visual appeal.
+9.Do not create a dull, plain, or minimal-only blueprint. Always optimize for a beautiful, engaging, animated interface.
+10.If the idea is vague, infer a strong premium consumer app direction and still return the best possible JSON.
 
 Analyze this app idea: "${prompt}"${designInstructions}`;
 

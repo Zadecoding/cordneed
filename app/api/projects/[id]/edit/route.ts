@@ -20,24 +20,23 @@ function buildEditPrompt(
     })
     .join('\n\n');
 
-  return `You are an expert React Native Expo developer. The user has an existing app and wants targeted changes made to it.
+  return `You are an expert React Native Expo developer. Your goal is to make a surgical change to a codebase.
 
-EXISTING PROJECT FILES:
+EXISTING PROJECT FILES (partial context):
 ${filesSummary}
 
 USER'S CHANGE REQUEST:
 ${changeRequest}
 
-CRITICAL RULES:
+CRITICAL RULES FOR SURGICAL EDITS (FAILURE IS NOT AN OPTION):
 1. Return ONLY valid JSON — no markdown, no explanation before or after.
-2. The JSON must be an object where keys are ONLY the file paths that need to be changed.
-3. ONLY include files you are actually modifying. Do NOT include unchanged files.
-4. Return the COMPLETE new content for each modified file (not diffs — full file content).
-5. You may create new files if the change requires them.
-6. Keep all existing functionality intact unless explicitly asked to remove it.
-7. The returned JSON shape: { "path/to/file.tsx": "full new content...", ... }
+2. The JSON keys MUST be exactly the file paths.
+3. EXTREME IMPORTANCE: ONLY include files you are actually modifying to fulfill the request. If a file does not need to change, DO NOT output it.
+4. If you output unchanged files, the system will fail. We only want the edited files.
+5. For the files you DO modify, return their COMPLETE new content. No diffs.
+6. The JSON shape: { "path/to/file.tsx": "full new content...", ... }
 
-Make ONLY the changes needed to fulfill the request. Return the minimal set of files that need to change. start your response with { immediately.`;
+Start your response with { immediately and keep your output as short as possible.`;
 }
 
 // ─── Mistral Edit Call Logic ──────────────────────────────────────────────────
@@ -124,9 +123,9 @@ export async function POST(
     // Build prompt and call AI (Mistral only)
     const editPrompt = buildEditPrompt(changeRequest.trim(), existingFiles);
 
-    // Use mistral-large-latest only. Edits are complex and need high reasoning.
-    // Give it 55 seconds (Vercel hard limit is 60s total, so cascasing is impossible)
-    const changedFiles = await callMistralEdit(editPrompt, 'mistral-large-latest', 55_000);
+    // Use mistral-small-latest (fastest). Large model is too slow and hits Vercel 60s limit.
+    // Give it 50 seconds.
+    const changedFiles = await callMistralEdit(editPrompt, 'mistral-small-latest', 50_000);
 
     if (!changedFiles || Object.keys(changedFiles).length === 0) {
       return NextResponse.json(

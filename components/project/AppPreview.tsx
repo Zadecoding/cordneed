@@ -312,7 +312,7 @@ export default function AppPreview({ projectId, projectName, files }: AppPreview
         <div className="flex items-center gap-2 text-xs text-slate-400">
           <Monitor size={13} />
           <span className="font-semibold text-slate-200">Live Preview</span>
-          <span className="text-slate-600">· powered by Sandpack</span>
+          <span className="text-slate-600">· read only view</span>
         </div>
         <div className="flex-1" />
         <button

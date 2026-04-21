@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 
 const features = [
-  { icon: Cpu, title: 'AI-Powered Generation', description: 'Gemini AI understands your prompt and generates complete, production-ready React Native Expo code in seconds.', color: 'from-indigo-500 to-violet-600', glow: 'rgba(99,102,241,0.25)' },
+  { icon: Cpu, title: 'AI-Powered Generation', description: 'Our custom AI engine understands your prompt and generates complete, production-ready React Native Expo code in seconds.', color: 'from-indigo-500 to-violet-600', glow: 'rgba(99,102,241,0.25)' },
   { icon: Smartphone, title: 'Android & iOS Ready', description: 'Every generated app works natively on both platforms with platform-specific optimizations built in.', color: 'from-cyan-500 to-blue-600', glow: 'rgba(6,182,212,0.25)' },
   { icon: FolderTree, title: 'Full File Tree View', description: 'Browse your generated project like a real IDE — explore folders, view any file with full syntax highlighting.', color: 'from-emerald-500 to-teal-600', glow: 'rgba(16,185,129,0.25)' },
   { icon: Download, title: 'ZIP Download', description: 'Download your entire project as a single ZIP file. Open in VS Code and run with Expo in minutes.', color: 'from-violet-500 to-purple-600', glow: 'rgba(139,92,246,0.25)' },

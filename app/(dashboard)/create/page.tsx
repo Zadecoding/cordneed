@@ -465,7 +465,7 @@ export default function CreatePage() {
             </div>
           </div>
           <h3 style={{ color: '#fff', fontWeight: 700, fontSize: '18px', marginBottom: '8px' }}>
-            Mistral AI is Planning Your App
+            AI is Planning Your App
           </h3>
           <p style={{ color: '#94a3b8', fontSize: '14px', margin: '0 auto', maxWidth: '320px' }}>
             Analyzing your prompt to design screens, features, and architecture...
@@ -556,7 +556,7 @@ export default function CreatePage() {
             />
           </div>
           <p style={{ color: '#334155', fontSize: '12px', marginTop: '8px' }}>
-            {architecture ? `Using Gemini · ${architecture.screens.length} screens to build` : 'Using Gemini AI · This takes 15–30 seconds'}
+            {architecture ? `Using AI · ${architecture.screens.length} screens to build` : 'Using AI · This takes 15–30 seconds'}
           </p>
 
           {/* Icon generation notice */}
@@ -567,7 +567,7 @@ export default function CreatePage() {
             }}
           >
             <ImageIcon size={12} />
-            App icon generating in background via Hugging Face...
+            App icon generating in background...
           </div>
         </div>
       )}
@@ -708,30 +708,7 @@ export default function CreatePage() {
             </div>
           </div>
 
-          {/* AI Provider badges */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            <span style={{ color: '#334155', fontSize: '12px' }}>Powered by:</span>
-            {[
-              { label: 'Mistral AI', color: '#f97316', icon: <Brain size={11} /> },
-              { label: 'Gemini', color: '#4ade80', icon: <Sparkles size={11} /> },
-              { label: 'Hugging Face', color: '#facc15', icon: <ImageIcon size={11} /> },
-            ].map((p) => (
-              <span
-                key={p.label}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: '5px',
-                  padding: '3px 10px', borderRadius: '999px',
-                  background: p.color + '18',
-                  border: `1px solid ${p.color}44`,
-                  color: p.color,
-                  fontSize: '12px', fontWeight: 600,
-                }}
-              >
-                {p.icon}
-                {p.label}
-              </span>
-            ))}
-          </div>
+
 
           {/* Submit */}
           <button
@@ -755,7 +732,7 @@ export default function CreatePage() {
           </button>
 
           <p style={{ textAlign: 'center', color: '#334155', fontSize: '12px' }}>
-            Step 1: Mistral AI plans the architecture (2–3s) · Step 2: Gemini generates code (15–30s)
+            Step 1: AI plans the architecture (2–3s) · Step 2: AI generates code (15–30s)
           </p>
         </form>
       )}

@@ -90,7 +90,7 @@ export default function Hero() {
             {/* Badge */}
             <div className="glass" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, borderRadius: 999, padding: '8px 16px', fontSize: 14, marginBottom: 28, border: '1px solid rgba(99,102,241,0.2)' }}>
               <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#34d399', flexShrink: 0 }} />
-              <span style={{ color: '#34d399', fontWeight: 500 }}>Now powered by Gemini AI</span>
+              <span style={{ color: '#34d399', fontWeight: 500 }}>Advanced AI Engine</span>
               <Sparkles style={{ width: 14, height: 14, color: '#818cf8', flexShrink: 0 }} />
             </div>
 

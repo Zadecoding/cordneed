@@ -103,10 +103,7 @@ export default function Footer() {
             © {new Date().getFullYear()} Cordneed. All rights reserved. Made in India 🇮🇳
           </p>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#334155' }}>
-            <span>Powered by</span>
-            <span style={{ color: '#6366f1', fontWeight: 500 }}>Gemini AI</span>
-            <span>·</span>
-            <span>Payments by</span>
+            <span>Secure Payments by</span>
             <span style={{ color: '#6366f1', fontWeight: 500 }}>Razorpay</span>
           </div>
         </div>

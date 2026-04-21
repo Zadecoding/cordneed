@@ -4,7 +4,7 @@ import { generateReactNativeApp } from '@/lib/ai/generate';
 import { generateAndStoreAppIcon } from '@/lib/ai/images';
 import type { AppArchitecture } from '@/lib/ai/architect';
 
-export const maxDuration = 60;
+export const maxDuration = 300; // Allow maximum Vercel limit for Pro workspaces
 
 export async function POST(request: NextRequest) {
   try {

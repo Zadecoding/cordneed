@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { Mistral } from '@mistralai/mistralai';
 
-export const maxDuration = 60; // Vercel limit
+export const maxDuration = 300; // Allow maximum Vercel limit for Pro workspaces
 
 const mistral = new Mistral({ apiKey: process.env.MISTRAL_API_KEY! });
 
@@ -68,20 +68,18 @@ function parseEditOutput(raw: string): Record<string, string> | null {
   return null;
 }
 
-async function callMistralEdit(prompt: string, model: string, timeoutMs: number): Promise<Record<string, string> | null> {
+async function callMistralEdit(prompt: string, model: string): Promise<Record<string, string> | null> {
   console.log(`[Edit] Mistral trying: ${model}`);
   try {
-    const text = await Promise.race<string>([
-      mistral.chat
-        .complete({
-          model,
-          messages: [{ role: 'user', content: prompt }],
-          temperature: 0.1,
-          maxTokens: 12000,
-        })
-        .then((r) => (r.choices?.[0]?.message?.content as string) ?? ''),
-      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), timeoutMs)),
-    ]);
+    const text = await mistral.chat
+      .complete({
+        model,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.1,
+        maxTokens: 12000,
+      })
+      .then((r) => (r.choices?.[0]?.message?.content as string) ?? '');
+    
     return parseEditOutput(text);
   } catch (err) {
     console.warn(`[Edit] Mistral ${model} failed:`, (err as Error).message);
@@ -123,9 +121,8 @@ export async function POST(
     // Build prompt and call AI (Mistral only)
     const editPrompt = buildEditPrompt(changeRequest.trim(), existingFiles);
 
-    // Use mistral-small-latest (fastest). Large model is too slow and hits Vercel 60s limit.
-    // Give it 50 seconds.
-    const changedFiles = await callMistralEdit(editPrompt, 'mistral-small-latest', 50_000);
+    // Use mistral-small-latest (fastest). Large model is too slow and hits Vercel limits easily.
+    const changedFiles = await callMistralEdit(editPrompt, 'mistral-small-latest');
 
     if (!changedFiles || Object.keys(changedFiles).length === 0) {
       return NextResponse.json(

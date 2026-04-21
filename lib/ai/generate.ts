@@ -114,27 +114,18 @@ function parseModelOutput(raw: string, prompt: string): Record<string, string> {
 async function callMistral(
   model: string,
   systemPrompt: string,
-  timeoutMs: number,
   rawPrompt: string
 ): Promise<Record<string, string>> {
   console.log(`[AI] Mistral trying: ${model}`);
 
-  const text = await Promise.race<string>([
-    mistral.chat
-      .complete({
-        model,
-        messages: [{ role: 'user', content: systemPrompt }],
-        temperature: 0.1,   // low temp = more JSON-consistent output
-        maxTokens: 16000,
-      })
-      .then((r) => (r.choices?.[0]?.message?.content as string) ?? ''),
-    new Promise<never>((_, reject) =>
-      setTimeout(
-        () => reject(new Error(`${model} timed out after ${timeoutMs / 1000}s`)),
-        timeoutMs
-      )
-    ),
-  ]);
+  const text = await mistral.chat
+    .complete({
+      model,
+      messages: [{ role: 'user', content: systemPrompt }],
+      temperature: 0.1,   // low temp = more JSON-consistent output
+      maxTokens: 16000,
+    })
+    .then((r) => (r.choices?.[0]?.message?.content as string) ?? '');
 
   return parseModelOutput(text, rawPrompt);
 }
@@ -150,7 +141,7 @@ export async function generateReactNativeApp(
 
   // 1. Try mistral-small (fast)
   try {
-    const files = await callMistral(PRIMARY_MODEL, systemPrompt, PRIMARY_TIMEOUT, prompt);
+    const files = await callMistral(PRIMARY_MODEL, systemPrompt, prompt);
     const codeFiles = Object.keys(files).filter(k => k.endsWith('.tsx') || k.endsWith('.ts'));
     if (codeFiles.length >= 3) {
       console.log(`[AI] mistral-small success: ${Object.keys(files).length} files`);
@@ -163,7 +154,7 @@ export async function generateReactNativeApp(
 
   // 2. Try mistral-large (better quality, slower)
   try {
-    const files = await callMistral(FALLBACK_MODEL, systemPrompt, FALLBACK_TIMEOUT, prompt);
+    const files = await callMistral(FALLBACK_MODEL, systemPrompt, prompt);
     console.log(`[AI] mistral-large success: ${Object.keys(files).length} files`);
     return files;
   } catch (err) {

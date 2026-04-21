@@ -143,7 +143,7 @@ async function callMistral(
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
-async function fetchDesignContent(url: string): Promise<string> {
+export async function fetchDesignContent(url: string): Promise<string> {
   console.log(`[AI] Fetching design content from: ${url}`);
   try {
     const res = await fetch(`https://r.jina.ai/${encodeURIComponent(url)}`, {

@@ -293,7 +293,7 @@ export default function CreatePage() {
       const res = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: prompt.trim() }),
+        body: JSON.stringify({ prompt: prompt.trim(), designLink: designLink.trim() || undefined }),
       });
 
       if (!res.ok) {

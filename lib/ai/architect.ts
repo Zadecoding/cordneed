@@ -1,4 +1,5 @@
 import { Mistral } from '@mistralai/mistralai';
+import { fetchDesignContent } from './generate';
 
 const mistral = new Mistral({ apiKey: process.env.MISTRAL_API_KEY! });
 
@@ -16,7 +17,16 @@ export interface AppArchitecture {
 const ANALYZE_TIMEOUT_MS = 15_000;
 
 /** Use Mistral to decompose a user prompt into an app architecture blueprint */
-export async function analyzePrompt(prompt: string): Promise<AppArchitecture> {
+export async function analyzePrompt(prompt: string, designLink?: string): Promise<AppArchitecture> {
+  let designContent = "";
+  if (designLink && designLink.trim().length > 0) {
+    designContent = await fetchDesignContent(designLink.trim());
+  }
+
+  const designInstructions = designContent 
+    ? `\nDESIGN REFERENCE CONTENT:\n"""\n${designContent}\n"""\n\nCRITICAL: The user provided the above design reference. You MUST base your architecture (screens, features, colorTheme, primaryColor) completely off of this design. Extract the relevant color palette and screen structures from the design.`
+    : (designLink ? `\nCRITICAL: The user provided a design reference URL: ${designLink}. Use this as context if possible.` : "");
+
   const systemPrompt = `You are an expert mobile app architect. Analyze the user's app idea and return a JSON architecture blueprint.
 
 RULES:
@@ -36,7 +46,7 @@ RULES:
 4. features: 3-8 key technical features (auth, payments, camera, maps, etc.)
 5. complexity: simple = 1-3 screens, moderate = 4-6, complex = 7+
 
-Analyze this app idea: ${prompt}`;
+Analyze this app idea: "${prompt}"${designInstructions}`;
 
   const timeoutPromise = new Promise<never>((_, reject) =>
     setTimeout(() => reject(new Error('Mistral architecture analysis timed out')), ANALYZE_TIMEOUT_MS)

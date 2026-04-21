@@ -15,13 +15,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
-    const { prompt } = await request.json();
+    const { prompt, designLink } = await request.json();
 
     if (!prompt?.trim()) {
       return NextResponse.json({ message: 'Prompt is required' }, { status: 400 });
     }
 
-    const architecture = await analyzePrompt(prompt.trim());
+    const architecture = await analyzePrompt(prompt.trim(), designLink);
 
     return NextResponse.json({ architecture });
   } catch (error) {

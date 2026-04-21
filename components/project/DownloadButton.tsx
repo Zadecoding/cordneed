@@ -7,22 +7,23 @@ import { toast } from 'sonner';
 interface DownloadButtonProps {
   projectId: string;
   projectName: string;
-  isPro: boolean;
+  isPro: boolean; // kept for prop compatibility, no longer gates download
 }
 
-export default function DownloadButton({ projectId, projectName, isPro }: DownloadButtonProps) {
+export default function DownloadButton({ projectId, projectName }: DownloadButtonProps) {
   const [loading, setLoading] = useState(false);
 
   const handleDownload = async () => {
-    if (!isPro) {
-      toast.error('ZIP download is a Pro feature. Upgrade to download your project.');
-      return;
-    }
-
     setLoading(true);
     try {
       const response = await fetch(`/api/download/${projectId}`);
-      if (!response.ok) throw new Error('Download failed');
+      if (!response.ok) {
+        const ct = response.headers.get('content-type') || '';
+        const msg = ct.includes('application/json')
+          ? (await response.json()).message
+          : 'Download failed';
+        throw new Error(msg);
+      }
 
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
@@ -34,8 +35,8 @@ export default function DownloadButton({ projectId, projectName, isPro }: Downlo
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       toast.success('Download started!');
-    } catch {
-      toast.error('Download failed. Please try again.');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Download failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -45,18 +46,14 @@ export default function DownloadButton({ projectId, projectName, isPro }: Downlo
     <button
       onClick={handleDownload}
       disabled={loading}
-      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-        isPro
-          ? 'btn-primary'
-          : 'border border-slate-700 text-slate-400 cursor-not-allowed opacity-60'
-      } disabled:opacity-60`}
+      className='flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all btn-primary disabled:opacity-60'
     >
       {loading ? (
-        <Loader2 className="w-4 h-4 animate-spin relative z-10" />
+        <Loader2 className='w-4 h-4 animate-spin relative z-10' />
       ) : (
-        <Download className="w-4 h-4 relative z-10" />
+        <Download className='w-4 h-4 relative z-10' />
       )}
-      <span className="relative z-10">{isPro ? 'Download ZIP' : 'ZIP (Pro Only)'}</span>
+      <span className='relative z-10'>{loading ? 'Zipping...' : 'Download ZIP'}</span>
     </button>
   );
 }

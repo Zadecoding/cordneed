@@ -18,21 +18,7 @@ export async function GET(
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
-    // Check subscription (Pro only)
-    const { data: subscription } = await supabase
-      .from('subscriptions')
-      .select('plan')
-      .eq('user_id', user.id)
-      .single();
-
-    if (subscription?.plan !== 'pro') {
-      return NextResponse.json(
-        { message: 'ZIP download is a Pro feature. Please upgrade your plan.' },
-        { status: 403 }
-      );
-    }
-
-    // Fetch project
+    // Fetch project (any plan can download)
     const { data: project } = await supabase
       .from('projects')
       .select('name, files')
@@ -45,16 +31,19 @@ export async function GET(
     }
 
     const files = project.files as Record<string, string>;
-    const zipBuffer = await createProjectZip(
-      project.name.toLowerCase().replace(/\s+/g, '-'),
-      files
-    );
+
+    if (Object.keys(files).length === 0) {
+      return NextResponse.json({ message: 'No files to download' }, { status: 400 });
+    }
+
+    const safeName = project.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const zipBuffer = await createProjectZip(safeName, files);
 
     return new NextResponse(new Uint8Array(zipBuffer), {
       status: 200,
       headers: {
         'Content-Type': 'application/zip',
-        'Content-Disposition': `attachment; filename="${project.name.toLowerCase().replace(/\s+/g, '-')}.zip"`,
+        'Content-Disposition': `attachment; filename="${safeName}.zip"`,
         'Content-Length': zipBuffer.length.toString(),
       },
     });

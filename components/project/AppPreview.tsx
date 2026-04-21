@@ -52,7 +52,7 @@ export default function AppPreview({ projectId, projectName, files }: AppPreview
   // ── Render ──────────────────────────────────────────────────────────────────
 
   const iframeSrc = snackId 
-    ? `https://snack.expo.dev/embedded/@snack/${snackId}?preview=true&platform=${platform}&theme=dark&hideComponents=true`
+    ? `https://snack.expo.dev/embedded/${snackId}?preview=true&platform=${platform}&theme=dark&hideComponents=true`
     : '';
 
   return (
@@ -83,7 +83,7 @@ export default function AppPreview({ projectId, projectName, files }: AppPreview
         <div className="flex items-center gap-2">
           {snackId && (
             <a 
-              href={`https://snack.expo.dev/@snack/${snackId}`} 
+              href={`https://snack.expo.dev/${snackId}`} 
               target="_blank" 
               rel="noreferrer"
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 transition-colors"

@@ -9,6 +9,7 @@ interface FileTreeProps {
   files: Record<string, string>;
   selectedFile: string | null;
   onSelect: (path: string) => void;
+  highlightedFiles?: string[];
 }
 
 type TreeNode = {
@@ -56,12 +57,15 @@ function TreeNodeView({
   depth = 0,
   selectedFile,
   onSelect,
+  highlightedFiles = [],
 }: {
   node: TreeNode;
   depth?: number;
   selectedFile: string | null;
   onSelect: (path: string) => void;
+  highlightedFiles?: string[];
 }) {
+  const isHighlighted = node.type === 'file' && highlightedFiles.includes(node.path);
   const [open, setOpen] = useState(depth === 0 || depth <= 1);
   const isSelected = selectedFile === node.path;
   const FileIcon = getFileIcon(node.name);
@@ -101,6 +105,7 @@ function TreeNodeView({
                   depth={depth + 1}
                   selectedFile={selectedFile}
                   onSelect={onSelect}
+                  highlightedFiles={highlightedFiles}
                 />
               ))}
             </motion.div>
@@ -116,17 +121,20 @@ function TreeNodeView({
       className={`w-full flex items-center gap-1.5 px-2 py-1.5 rounded-lg transition-colors text-left ${
         isSelected
           ? 'bg-indigo-500/15 text-indigo-300 border border-indigo-500/20'
+          : isHighlighted
+          ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20'
           : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
       }`}
       style={{ paddingLeft: `${depth * 14 + 8}px` }}
     >
-      <FileIcon className={`w-3.5 h-3.5 flex-shrink-0 ${isSelected ? 'text-indigo-400' : iconColor}`} />
+      <FileIcon className={`w-3.5 h-3.5 flex-shrink-0 ${isSelected ? 'text-indigo-400' : isHighlighted ? 'text-emerald-400' : iconColor}`} />
       <span className="text-xs font-mono truncate">{node.name}</span>
+      {isHighlighted && <span style={{ marginLeft: 'auto', width: '6px', height: '6px', borderRadius: '50%', background: '#4ade80', flexShrink: 0 }} />}
     </button>
   );
 }
 
-export default function FileTree({ files, selectedFile, onSelect }: FileTreeProps) {
+export default function FileTree({ files, selectedFile, onSelect, highlightedFiles = [] }: FileTreeProps) {
   const tree = buildFileTree(files);
 
   return (
@@ -140,6 +148,7 @@ export default function FileTree({ files, selectedFile, onSelect }: FileTreeProp
           node={node as TreeNode}
           selectedFile={selectedFile}
           onSelect={onSelect}
+          highlightedFiles={highlightedFiles}
         />
       ))}
     </div>

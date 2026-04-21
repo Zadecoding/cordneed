@@ -23,7 +23,17 @@ export async function POST(request: NextRequest) {
     const code: Record<string, any> = {};
     for (const [path, content] of Object.entries(files)) {
       if (typeof content === 'string' && !path.startsWith('.') && !path.endsWith('.png')) {
-        code[path] = { type: 'CODE', contents: content };
+        let transformedContent = content;
+        
+        // Snack simulator notoriously fails at resolving `@/` aliases defined in tsconfig.
+        // We dynamically convert any `@/` import into standard relative paths `../../`
+        if (transformedContent.includes('@/')) {
+          const depth = path.split('/').length - 1;
+          const relativePrefix = depth === 0 ? './' : '../'.repeat(depth);
+          transformedContent = transformedContent.replace(/@\//g, relativePrefix);
+        }
+        
+        code[path] = { type: 'CODE', contents: transformedContent };
       }
     }
 

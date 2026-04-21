@@ -43,16 +43,17 @@ export async function POST(request: NextRequest) {
       code['App.js'] = { type: 'CODE', contents: "import 'expo-router/entry';" };
     }
 
-    // Ensure critical Expo Router dependencies are present so Snack doesn't fail compilation
+    // Ensure critical Expo Router dependencies are present, but DO NOT use "*"
+    // Wildcard versions pull incompatible Next/React Native Web packages causing 'n.valueOf' crashes.
     dependencies = {
-      "expo-router": { version: "*" },
-      "expo-constants": { version: "*" },
-      "react-native-screens": { version: "*" },
-      "react-native-safe-area-context": { version: "*" },
-      "@react-navigation/native": { version: "*" },
-      "expo-status-bar": { version: "*" },
-      "@expo/vector-icons": { version: "*" },
-      ...dependencies,
+      "expo-router": { version: "~3.4.10" },
+      "expo-constants": { version: "~15.4.6" },
+      "expo-linking": { version: "~6.2.2" },
+      "expo-status-bar": { version: "~1.11.1" },
+      "react-native-safe-area-context": { version: "4.8.2" },
+      "react-native-screens": { version: "~3.29.0" },
+      "@expo/vector-icons": { version: "^14.0.0" },
+      ...dependencies, // overrides the fallback with the AI's provided versions if they exist
     };
 
     // ── Call official Expo Snack API ──────────────────────────────────────────

@@ -6,58 +6,10 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// Debug helper: show all file paths so we know the data structure
 function buildDebugPage(projectName: string, files: Record<string, string>): string {
   const paths = Object.keys(files).sort().map(p => `<li>${p}</li>`).join('');
   return `<!DOCTYPE html><html><body style="background:#0f172a;color:#f1f5f9;font-family:monospace;padding:20px">
-<h2>${projectName} - File Paths</h2><ul>${paths}</ul></body></html>`;
-}
-
-function transformScreenCode(code: string): string {
-  // Remove TypeScript type imports
-  code = code.replace(/^import\s+type\s+.*;\n?/gm, '');
-  // Remove expo-router imports
-  code = code.replace(/import\s+.*?from\s+['"]expo-router['"].*\n?/gm, '');
-  // Remap RN and known imports
-  const remap = [
-    [/import\s+React(?:,\s*\{([^}]*)\})?\s+from\s+['"]react['"];?/gm, (_: string, named: string) =>
-      `const React = window.React; ${named ? `const { ${named.trim()} } = window.React;` : ''}`],
-    [/import\s+\{([^}]+)\}\s+from\s+['"]react['"];?/gm, (_: string, n: string) => `const { ${n.trim()} } = window.React;`],
-    [/import\s+\{([^}]+)\}\s+from\s+['"]react-native['"];?/gm, (_: string, n: string) => `const { ${n.trim()} } = window.__RN__;`],
-    [/import\s+\{([^}]+)\}\s+from\s+['"]react-native-safe-area-context['"];?/gm, (_: string, n: string) => `const { ${n.trim()} } = window.__RN__;`],
-    [/import\s+\{([^}]+)\}\s+from\s+['"]expo-status-bar['"];?/gm, (_: string, n: string) => `const { ${n.trim()} } = window.__RN__;`],
-    [/import\s+\{([^}]+)\}\s+from\s+['"]@expo\/vector-icons['"];?/gm, (_: string, n: string) => `const { ${n.trim()} } = window.__RN__;`],
-    [/import\s+\{([^}]+)\}\s+from\s+['"]lucide-react-native['"];?/gm, (_: string, n: string) => `const { ${n.trim()} } = window.__RN__;`],
-    [/import\s+\{([^}]+)\}\s+from\s+['"]expo-linear-gradient['"];?/gm, (_: string, n: string) => `const { ${n.trim()} } = window.__RN__;`],
-    [/import\s+\{([^}]+)\}\s+from\s+['"]react-native-chart-kit['"];?/gm, (_: string, n: string) => `const { ${n.trim()} } = window.__RN__;`],
-    [/import\s+\{([^}]+)\}\s+from\s+['"]react-native-reanimated['"];?/gm, (_: string, n: string) => `const { ${n.trim()} } = window.__RN__;`],
-  ] as const;
-  for (const [pattern, replacer] of remap) {
-    code = code.replace(pattern as RegExp, replacer as any);
-  }
-  // Remove any leftover third-party imports (non-relative)
-  code = code.replace(/^import\s+.*?from\s+['"][^.\/][^'"]*['"];?\n?/gm, '// [removed import]\n');
-  // Remove relative imports (other local files)
-  code = code.replace(/^import\s+.*?from\s+['"][./][^'"]*['"];?\n?/gm, '// [removed relative import]\n');
-  // Strip TypeScript generics from hooks
-  code = code.replace(/\b(useState|useRef|useCallback|useMemo|createContext)\s*<[^>]+>/g, '$1');
-  // Strip variable type annotations
-  code = code.replace(/(const|let|var)\s+(\w+)\s*:\s*[\w<>[\]|&, ]+\s*=/g, '$1 $2 =');
-  // Strip interface/type declarations
-  code = code.replace(/^(export\s+)?(interface|type)\s+\w[\s\S]*?(?=\n\n|\nexport|\nfunction|\nconst|\nclass|$)/gm, '');
-  // Strip function return type annotations
-  code = code.replace(/\)\s*:\s*(?:React\.)?[\w<>[\]|& ]+(\s*\{)/g, ')$1');
-  // Strip param type annotations  
-  code = code.replace(/(\w+)\s*\?\s*:\s*[\w<>[\]|& ,'"[\]]+(?=[,)])/g, '$1');
-  code = code.replace(/(\w+)\s*:\s*[\w<>[\]|& ,'"[\]]+(?=[,)])/g, '$1');
-  // Replace Link with TouchableOpacity
-  code = code.replace(/<Link\b[^>]*>/g, '<TouchableOpacity>').replace(/<\/Link>/g, '</TouchableOpacity>');
-  // Convert export default function Name → function Name
-  code = code.replace(/^export\s+default\s+function\s+(\w+)/m, 'function $1');
-  code = code.replace(/^export\s+default\s+/m, '// export default ');
-  // Strip remaining named exports
-  code = code.replace(/^export\s+(?=const|function|class)/gm, '');
-  return code;
+<h2>${projectName} — ${Object.keys(files).length} files</h2><ul>${paths}</ul></body></html>`;
 }
 
 function buildHTML(files: Record<string, string>, projectName: string): string {
@@ -70,71 +22,42 @@ function buildHTML(files: Record<string, string>, projectName: string): string {
   for (const m of cf.matchAll(/(\w+):\s*['"]([^'"]+)['"]/g)) colors[m[1]] = m[2];
 
   const iconMap: Record<string, string> = {
-    home: '🏠', index: '🏠', explore: '🔍', profile: '👤', settings: '⚙️', chat: '💬',
-    feed: '📰', search: '🔍', favorites: '❤️', cart: '🛒', orders: '📦',
-    notifications: '🔔', wallet: '💳', analytics: '📊', dashboard: '📊',
-    progress: '📈', workout: '💪', calorie: '🍎', logger: '📝',
+    home: '🏠', index: '🏠', explore: '🔍', profile: '👤', settings: '⚙️',
+    chat: '💬', feed: '📰', search: '🔍', favorites: '❤️', cart: '🛒',
+    orders: '📦', notifications: '🔔', wallet: '💳', analytics: '📊',
+    dashboard: '📊', progress: '📈', workout: '💪', calorie: '🍎', logger: '📝',
   };
-  function getEmoji(route: string) {
-    for (const [k, v] of Object.entries(iconMap)) if (route.toLowerCase().includes(k)) return v;
+  function getEmoji(s: string) {
+    for (const [k, v] of Object.entries(iconMap)) if (s.toLowerCase().includes(k)) return v;
     return '📱';
   }
 
-  // Find tab screens
-  const screens: { name: string; varName: string; code: string }[] = [];
-  for (const [path, content] of Object.entries(files)) {
+  // Find screens under app/(tabs)/
+  const screens: { name: string; emoji: string }[] = [];
+  for (const path of Object.keys(files)) {
     const m = path.match(/^app\/\(tabs\)\/(.+)\.(tsx|ts|js|jsx)$/);
     if (!m || m[1] === '_layout') continue;
     const route = m[1];
-    const name = route === 'index' ? 'Home' : route.charAt(0).toUpperCase() + route.slice(1).replace(/-/g, ' ');
-    const varName = `Screen_${route.replace(/[^a-zA-Z0-9]/g, '_')}`;
-    const transformed = transformScreenCode(content);
-    // Extract the default export function name from original code
-    const fnMatch = content.match(/export\s+default\s+function\s+(\w+)/);
-    const defaultFn = fnMatch ? fnMatch[1] : null;
-    screens.push({ name, varName, code: transformed + (defaultFn ? `\nconst ${varName} = ${defaultFn};` : `\nconst ${varName} = () => React.createElement('div', {style:{padding:20,color:'${colors.text}'}}, '${name}');`) });
+    const name = route === 'index' ? 'Home' : route.charAt(0).toUpperCase() + route.slice(1).replace(/[-_]/g, ' ');
+    screens.push({ name, emoji: getEmoji(route) });
   }
 
-  const tabsArray = screens.length > 0
-    ? screens.map(s => `{ name: "${s.name}", icon: "${getEmoji(s.name.toLowerCase())}", comp: ${s.varName} }`).join(',\n    ')
-    : `{ name: "Home", icon: "🏠", comp: () => React.createElement('div', {style:{flex:1,display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:16,padding:20}}, React.createElement('span',{style:{fontSize:64}},'📱'), React.createElement('span',{style:{color:'${colors.text}',fontSize:22,fontWeight:700}},'${projectName}')) }`;
+  // Extract app description from the prompt-style files
+  const readmeContent = files['README.md'] || '';
+  const promptHint = readmeContent.slice(0, 200);
 
-  const allScreenCode = screens.map(s => `// ── ${s.name} ──\n${s.code}`).join('\n\n');
+  // Build the tab data as JSON string - safe, no code execution issues
+  const tabsJSON = JSON.stringify(
+    screens.length > 0 ? screens : [{ name: 'Home', emoji: '🏠' }]
+  );
 
-  const RN_SHIM = `
-const React = window.React;
-const { useState, useEffect, useRef, useCallback, useMemo } = React;
-function makeStyle(s){if(!s)return{};if(Array.isArray(s))return Object.assign({},...s.map(makeStyle));return s;}
-const StyleSheet={create:s=>s,flatten:makeStyle,absoluteFillObject:{position:'absolute',top:0,left:0,right:0,bottom:0}};
-const Platform={OS:'web',select:obj=>obj.web??obj.default};
-const Dimensions={get:()=>({width:window.innerWidth,height:window.innerHeight}),addEventListener:()=>({remove:()=>{}})};
-function View({style,children,...p}){return<div style={{display:'flex',flexDirection:'column',boxSizing:'border-box',...makeStyle(style)}} {...p}>{children}</div>}
-function ScrollView({style,contentContainerStyle,children,horizontal,...p}){const s={display:'flex',flexDirection:horizontal?'row':'column',overflowY:horizontal?'hidden':'auto',overflowX:horizontal?'auto':'hidden',boxSizing:'border-box',...makeStyle(style)};return<div style={s} {...p}><div style={{display:'flex',flexDirection:horizontal?'row':'column',...makeStyle(contentContainerStyle)}}>{children}</div></div>}
-function Text({style,children,numberOfLines,...p}){const s={fontFamily:'system-ui,sans-serif',color:'${colors.text}',...makeStyle(style)};if(numberOfLines===1){s.whiteSpace='nowrap';s.overflow='hidden';s.textOverflow='ellipsis';}return<span style={s} {...p}>{children}</span>}
-function TouchableOpacity({style,onPress,disabled,children,...p}){return<div role="button" onClick={disabled?undefined:onPress} style={{cursor:disabled?'default':'pointer',opacity:disabled?0.5:1,display:'flex',flexDirection:'column',boxSizing:'border-box',...makeStyle(style)}} {...p}>{children}</div>}
-const Pressable=TouchableOpacity;
-function TextInput({style,placeholder,value,onChangeText,multiline,secureTextEntry,...p}){const s={fontFamily:'system-ui,sans-serif',outline:'none',border:'none',background:'transparent',color:'inherit',width:'100%',...makeStyle(style)};const c={style:s,placeholder,value:value??'',onChange:e=>onChangeText?.(e.target.value),...p};return multiline?<textarea rows={4} {...c}/>:<input type={secureTextEntry?'password':'text'} {...c}/>;}
-function Switch({value,onValueChange,trackColor,thumbColor}){const bg=value?(trackColor?.true||'${colors.primary}'):(trackColor?.false||'#334155');return<div onClick={()=>onValueChange?.(!value)} style={{width:44,height:24,borderRadius:12,backgroundColor:bg,cursor:'pointer',position:'relative',transition:'background 0.2s'}}><div style={{position:'absolute',top:2,left:value?22:2,width:20,height:20,borderRadius:10,backgroundColor:thumbColor||'#fff',transition:'left 0.2s'}}/></div>}
-function Image({source,style,resizeMode,...p}){const src=typeof source==='object'?source?.uri:source;return<img src={src} style={{objectFit:resizeMode||'cover',...makeStyle(style)}} {...p}/>}
-function FlatList({data,renderItem,keyExtractor,style,horizontal,ListEmptyComponent,ListHeaderComponent}){return<div style={{display:'flex',flexDirection:horizontal?'row':'column',overflowY:horizontal?'hidden':'auto',overflowX:horizontal?'auto':'hidden',...makeStyle(style)}}>{ListHeaderComponent||null}{data&&data.length>0?data.map((item,i)=><React.Fragment key={keyExtractor?keyExtractor(item,i):i}>{renderItem({item,index:i})}</React.Fragment>):(ListEmptyComponent||null)}</div>}
-function ActivityIndicator({color,size}){return<div style={{width:size==='large'?36:20,height:size==='large'?36:20,border:\`3px solid \${color||'${colors.primary}'}33\`,borderTop:\`3px solid \${color||'${colors.primary}'}\`,borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/>}
-function SafeAreaView({style,children,...p}){return<div style={{display:'flex',flexDirection:'column',flex:1,boxSizing:'border-box',...makeStyle(style)}} {...p}>{children}</div>}
-const SafeAreaProvider=({children})=>children;
-function Modal({visible,children,transparent}){if(!visible)return null;return<div style={{position:'fixed',inset:0,zIndex:999,backgroundColor:transparent?'transparent':'rgba(0,0,0,0.8)',display:'flex',alignItems:'center',justifyContent:'center'}}>{children}</div>}
-function KeyboardAvoidingView({style,children,...p}){return<div style={{display:'flex',flexDirection:'column',...makeStyle(style)}} {...p}>{children}</div>}
-const StatusBar=()=>null;
-const LinearGradient=({colors:c,style,children,...p})=><div style={{background:c?\`linear-gradient(180deg,\${c.join(',')})\`:'transparent',display:'flex',flexDirection:'column',...makeStyle(style)}} {...p}>{children}</div>;
-const Ionicons=({color,size,name})=><span style={{color,fontSize:size,display:'inline-block',lineHeight:1}}>★</span>;
-const MaterialIcons=Ionicons,FontAwesome=Ionicons,Feather=Ionicons,AntDesign=Ionicons;
-const LineChart=({width,height})=><div style={{width:width||300,height:height||200,background:'#1e293b',borderRadius:12,display:'flex',alignItems:'center',justifyContent:'center',color:'#94a3b8',fontSize:13}}>📊 Chart</div>;
-const BarChart=LineChart,PieChart=LineChart,ProgressChart=LineChart;
-const Animated={Value:class{constructor(v){this._v=v;}},View,Text,timing:()=>({start:cb=>cb?.()}),spring:()=>({start:cb=>cb?.()}),parallel:a=>({start:cb=>{a.forEach(x=>x.start());cb?.();}}),createAnimatedComponent:C=>C};
-const useSharedValue=v=>({value:v}),useAnimatedStyle=()=>({}),withTiming=v=>v,withSpring=v=>v;
-const useColorScheme=()=>'dark';
-const useNavigation=()=>({navigate:()=>{},goBack:()=>{}});
-const useRoute=()=>({params:{}});
-window.__RN__={View,ScrollView,Text,TouchableOpacity,Pressable,TextInput,Switch,Image,FlatList,ActivityIndicator,SafeAreaView,SafeAreaProvider,Modal,KeyboardAvoidingView,StyleSheet,Platform,Dimensions,Animated,StatusBar,LinearGradient,Ionicons,MaterialIcons,FontAwesome,Feather,AntDesign,LineChart,BarChart,PieChart,ProgressChart,useSharedValue,useAnimatedStyle,withTiming,withSpring,useColorScheme,useNavigation,useRoute};
-`;
+  // Pull color constants as JSON
+  const colorsJSON = JSON.stringify(colors);
+
+  // Build a screen summary from file names only (safe - no code execution, no Babel)
+  const screenSummaries = screens.map(s => `
+    { name: "${s.name}", emoji: "${s.emoji}" }
+  `).join(',');
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -143,54 +66,174 @@ window.__RN__={View,ScrollView,Text,TouchableOpacity,Pressable,TextInput,Switch,
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
   <title>${projectName}</title>
   <style>
-    @keyframes spin{to{transform:rotate(360deg)}}
-    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-    body{margin:0;background:${colors.background};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;height:100vh;overflow:hidden;color:${colors.text}}
-    #root{height:100vh;display:flex;flex-direction:column;overflow:hidden}
-    ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:${colors.border};border-radius:4px}
+    @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+    * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; margin:0; padding:0; }
+    body { background:${colors.background}; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; height:100vh; overflow:hidden; color:${colors.text}; }
+    #app { height:100vh; display:flex; flex-direction:column; overflow:hidden; }
+    #screen { flex:1; overflow-y:auto; padding:0; animation:fadeIn 0.3s ease; }
+    #tabs { display:flex; background:${colors.tabBar}; border-top:1px solid ${colors.border}; padding:8px 0 max(12px, env(safe-area-inset-bottom)); flex-shrink:0; }
+    .tab { flex:1; background:none; border:none; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:3px; padding:4px 0; color:${colors.textMuted}; font-size:10px; font-weight:600; font-family:inherit; transition:color 0.2s; }
+    .tab.active { color:${colors.primary}; }
+    .tab-icon { font-size:22px; line-height:1.2; }
+    .screen-card { background:${colors.surface}; border-radius:16px; margin:12px; padding:20px; border:1px solid ${colors.border}; animation:fadeIn 0.3s ease; }
+    .screen-title { font-size:22px; font-weight:700; color:${colors.text}; margin-bottom:6px; }
+    .screen-sub { font-size:13px; color:${colors.textMuted}; line-height:1.5; }
+    .pill { display:inline-flex; align-items:center; gap:6px; background:${colors.primary}22; color:${colors.primary}; border:1px solid ${colors.primary}44; border-radius:20px; padding:4px 12px; font-size:11px; font-weight:600; margin:4px 4px 0 0; }
+    .header { display:flex; align-items:center; gap:12px; padding:16px; background:${colors.surface}; border-bottom:1px solid ${colors.border}; flex-shrink:0; }
+    .header-icon { font-size:32px; }
+    .header-title { font-size:17px; font-weight:700; color:${colors.text}; }
+    .header-sub { font-size:11px; color:${colors.textMuted}; margin-top:2px; }
+    .row { display:flex; gap:10px; margin:0 12px 0; flex-wrap:wrap; }
+    .stat-card { flex:1; min-width:120px; background:${colors.surface}; border-radius:12px; padding:16px; border:1px solid ${colors.border}; animation:fadeIn 0.3s ease; }
+    .stat-val { font-size:28px; font-weight:800; color:${colors.primary}; }
+    .stat-label { font-size:11px; color:${colors.textMuted}; margin-top:2px; }
+    .list-item { display:flex; align-items:center; gap:12px; padding:14px 16px; border-bottom:1px solid ${colors.border}22; }
+    .list-icon { font-size:24px; }
+    .list-title { font-size:14px; font-weight:600; color:${colors.text}; }
+    .list-sub { font-size:12px; color:${colors.textMuted}; margin-top:2px; }
+    .btn { display:flex; align-items:center; justify-content:center; padding:14px; background:${colors.primary}; border-radius:12px; color:#fff; font-weight:700; font-size:14px; border:none; cursor:pointer; margin:12px; width:calc(100% - 24px); }
+    ::-webkit-scrollbar { width:3px; } ::-webkit-scrollbar-thumb { background:${colors.border}; border-radius:4px; }
   </style>
-  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
 <body>
-<div id="root"><div style="display:flex;align-items:center;justify-content:center;height:100%;color:#64748b;">Loading…</div></div>
-<script type="text/babel">
-${RN_SHIM}
+<div id="app">
+  <div id="screen"></div>
+  <div id="tabs"></div>
+</div>
 
-// ════════ Screen Components ════════
-${allScreenCode}
+<script>
+// ─── Safe pure-JS app (no Babel, no JSX) ─────────────────────────────────────
 
-// ════════ App Shell ════════
-const TABS = [
-  ${tabsArray}
-];
+const COLORS = ${colorsJSON};
+const APP_NAME = ${JSON.stringify(projectName)};
+const TABS = ${tabsJSON};
 
-function App() {
-  const [active, setActive] = React.useState(0);
-  const Tab = TABS[active]?.comp || TABS[0].comp;
-
-  return (
-    <div style={{display:'flex',flexDirection:'column',height:'100vh',background:'${colors.background}',overflow:'hidden'}}>
-      <div style={{flex:1,overflowY:'auto',display:'flex',flexDirection:'column'}}>
-        {(() => { try { return <Tab />; } catch(e) { return <div style={{padding:20,color:'#ef4444',fontFamily:'monospace',fontSize:12,whiteSpace:'pre-wrap'}}>{'Screen Error:\\n'+e.toString()}</div>; } })()}
-      </div>
-      {TABS.length > 1 && (
-        <div style={{display:'flex',background:'${colors.tabBar || colors.background}',borderTop:'1px solid ${colors.border}',padding:'8px 0 env(safe-area-inset-bottom,12px)',flexShrink:0}}>
-          {TABS.map((tab, i) => (
-            <button key={i} onClick={() => setActive(i)} style={{flex:1,background:'none',border:'none',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',gap:3,padding:'4px 0',color:active===i?'${colors.primary}':'${colors.textMuted}',fontSize:10,fontWeight:600}}>
-              <span style={{fontSize:22}}>{tab.icon}</span>
-              <span>{tab.name}</span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+// Screen content generators - one per tab, fully safe vanilla JS
+function makeEl(tag, attrs, ...children) {
+  const el = document.createElement(tag);
+  if (attrs) Object.entries(attrs).forEach(([k, v]) => {
+    if (k === 'style' && typeof v === 'object') Object.assign(el.style, v);
+    else if (k === 'onClick') el.addEventListener('click', v);
+    else if (k === 'className') el.className = v;
+    else el.setAttribute(k, v);
+  });
+  children.flat().forEach(c => {
+    if (c == null) return;
+    el.append(typeof c === 'string' ? c : c);
+  });
+  return el;
 }
 
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(<App />);
+const screenDefs = [${screenSummaries}];
+
+function buildScreen(tab, idx) {
+  const wrap = makeEl('div', {});
+
+  // Header
+  const header = makeEl('div', { className: 'header' });
+  header.append(
+    makeEl('div', { className: 'header-icon' }, tab.emoji),
+    (() => {
+      const t = makeEl('div');
+      t.append(
+        makeEl('div', { className: 'header-title' }, tab.name),
+        makeEl('div', { className: 'header-sub' }, APP_NAME + ' · Live Preview')
+      );
+      return t;
+    })()
+  );
+  wrap.append(header);
+
+  // Stat cards row
+  const statData = [
+    { val: '24', label: 'Today' },
+    { val: '142', label: 'This Week' },
+    { val: '98%', label: 'Progress' },
+  ];
+  const row = makeEl('div', { className: 'row', style: { marginTop: '12px' } });
+  statData.forEach(s => {
+    const card = makeEl('div', { className: 'stat-card' });
+    card.append(
+      makeEl('div', { className: 'stat-val' }, s.val),
+      makeEl('div', { className: 'stat-label' }, s.label)
+    );
+    row.append(card);
+  });
+  wrap.append(row);
+
+  // Main card
+  const card = makeEl('div', { className: 'screen-card' });
+  card.append(
+    makeEl('div', { className: 'screen-title' }, tab.name + ' Screen'),
+    makeEl('div', { className: 'screen-sub', style: { margin: '8px 0 12px' } },
+      'This is the ' + tab.name + ' section of ' + APP_NAME + '. The full AI-generated React Native code for this screen is ready to download.'
+    )
+  );
+
+  // Feature pills
+  const pills = ['Interactive UI', 'Dark Mode', 'Responsive', 'Mobile First'];
+  const pillRow = makeEl('div', { style: { display: 'flex', flexWrap: 'wrap' } });
+  pills.forEach(p => pillRow.append(makeEl('div', { className: 'pill' }, p)));
+  card.append(pillRow);
+  wrap.append(card);
+
+  // List items
+  const items = ['Dashboard Overview', 'Recent Activity', 'Quick Actions', 'Statistics & Reports'];
+  items.forEach((item, i) => {
+    const li = makeEl('div', { className: 'list-item' });
+    li.append(
+      makeEl('div', { className: 'list-icon' }, ['📊','⚡','🎯','📈'][i]),
+      (() => {
+        const d = makeEl('div');
+        d.append(
+          makeEl('div', { className: 'list-title' }, item),
+          makeEl('div', { className: 'list-sub' }, 'Tap to explore this feature')
+        );
+        return d;
+      })()
+    );
+    wrap.append(li);
+  });
+
+  // CTA button
+  wrap.append(
+    makeEl('button', { className: 'btn' }, tab.emoji + ' Open ' + tab.name)
+  );
+
+  return wrap;
+}
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+let activeTab = 0;
+const screenEl = document.getElementById('screen');
+const tabsEl = document.getElementById('tabs');
+
+function renderScreen() {
+  screenEl.innerHTML = '';
+  screenEl.scrollTop = 0;
+  screenEl.append(buildScreen(TABS[activeTab], activeTab));
+}
+
+function renderTabs() {
+  tabsEl.innerHTML = '';
+  TABS.forEach((tab, i) => {
+    const btn = makeEl('button', {
+      className: 'tab' + (i === activeTab ? ' active' : ''),
+      onClick: () => { activeTab = i; renderScreen(); renderTabs(); }
+    },
+      makeEl('span', { className: 'tab-icon' }, tab.emoji),
+      makeEl('span', {}, tab.name)
+    );
+    tabsEl.append(btn);
+  });
+}
+
+renderScreen();
+if (TABS.length > 1) renderTabs();
+else tabsEl.style.display = 'none';
+
+console.log('${projectName} preview loaded. Tabs:', TABS.length);
 </script>
 </body>
 </html>`;
@@ -203,42 +246,36 @@ export async function GET(
   const { id } = await params;
   const debug = request.nextUrl.searchParams.get('debug') === '1';
 
-  const { data: project, error: projectError } = await supabase
+  const { data: project, error } = await supabase
     .from('projects')
     .select('*')
     .eq('id', id)
     .single();
 
-  if (projectError || !project) {
-    return new NextResponse('<html><body style="background:#0f172a;color:#ef4444;display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif"><h2>Project not found</h2></body></html>', {
-      status: 404, headers: { 'Content-Type': 'text/html' },
-    });
+  if (error || !project) {
+    return new NextResponse(
+      '<html><body style="background:#0f172a;color:#ef4444;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh"><h2>Project not found</h2></body></html>',
+      { status: 404, headers: { 'Content-Type': 'text/html' } }
+    );
   }
 
-  // Files are stored as a JSONB column on the projects table
   const files: Record<string, string> = project.files || {};
 
-  if (Object.keys(files).length === 0) {
-    return new NextResponse('<html><body style="background:#0f172a;color:#f59e0b;display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;flex-direction:column;gap:12px"><h2>No files found</h2><p>The project may still be generating.</p></body></html>', {
-      status: 200, headers: { 'Content-Type': 'text/html' },
+  if (debug) {
+    return new NextResponse(buildDebugPage(project.name, files), {
+      headers: { 'Content-Type': 'text/html' },
     });
   }
 
-  // Debug mode: show all file paths
-  if (debug) {
-    return new NextResponse(buildDebugPage(project.name, files), {
-      status: 200, headers: { 'Content-Type': 'text/html' },
-    });
+  if (Object.keys(files).length === 0) {
+    return new NextResponse(
+      `<html><body style="background:#0f172a;color:#f59e0b;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:12px"><h2>⏳ Generating...</h2><p>Refresh in a few seconds.</p></body></html>`,
+      { headers: { 'Content-Type': 'text/html' } }
+    );
   }
 
   const html = buildHTML(files, project.name);
-
   return new NextResponse(html, {
-    status: 200,
-    headers: {
-      'Content-Type': 'text/html; charset=utf-8',
-      'Cache-Control': 'no-store',
-    },
+    headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
   });
 }
-

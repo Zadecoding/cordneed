@@ -4,11 +4,10 @@ import { useState } from 'react';
 import FileTree from '@/components/project/FileTree';
 import CodeViewer from '@/components/project/CodeViewer';
 import DownloadButton from '@/components/project/DownloadButton';
-import AppPreview from '@/components/project/AppPreview';
 import AIEditBar from '@/components/project/AIEditBar';
 import {
   ArrowLeft, Calendar, FileCode, Sparkles,
-  Code2, Smartphone, CheckCircle2,
+  Code2, Smartphone, CheckCircle2, Copy, ExternalLink, QrCode,
 } from 'lucide-react';
 import Link from 'next/link';
 import { formatDate } from '@/lib/utils';
@@ -29,6 +28,108 @@ interface Props {
 
 type MainTab = 'code' | 'preview';
 
+function MobilePreviewPanel({ projectId, projectName }: { projectId: string; projectName: string }) {
+  const [copied, setCopied] = useState(false);
+  const previewUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/api/preview/${projectId}`;
+
+  function copy() {
+    navigator.clipboard.writeText(previewUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(previewUrl)}&bgcolor=0f172a&color=a78bfa&qzone=2`;
+
+  return (
+    <div style={{
+      flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: '#030812', padding: '32px 20px',
+    }}>
+      <div style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 28,
+        maxWidth: 420, width: '100%',
+      }}>
+        {/* Header */}
+        <div style={{ textAlign: 'center' }}>
+          <div style={{
+            width: 64, height: 64, borderRadius: 20,
+            background: 'linear-gradient(135deg, #6C3DE8, #8b5cf6)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            margin: '0 auto 16px', boxShadow: '0 0 32px rgba(108,61,232,0.4)',
+          }}>
+            <Smartphone size={28} color="#fff" />
+          </div>
+          <h2 style={{ color: '#f1f5f9', fontSize: 20, fontWeight: 700, margin: '0 0 8px' }}>
+            Run on Your Phone
+          </h2>
+          <p style={{ color: '#64748b', fontSize: 13, margin: 0, lineHeight: 1.6 }}>
+            Scan the QR code or open the link on any mobile browser to preview <strong style={{ color: '#94a3b8' }}>{projectName}</strong>
+          </p>
+        </div>
+
+        {/* QR Code */}
+        <div style={{
+          padding: 16, borderRadius: 20,
+          background: 'rgba(255,255,255,0.03)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          boxShadow: '0 0 40px rgba(108,61,232,0.1)',
+        }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={qrUrl}
+            alt="QR Code"
+            width={220}
+            height={220}
+            style={{ borderRadius: 12, display: 'block' }}
+          />
+        </div>
+
+        {/* URL row */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+          background: 'rgba(255,255,255,0.03)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          borderRadius: 12, padding: '10px 14px',
+        }}>
+          <span style={{
+            flex: 1, color: '#a78bfa', fontSize: 12, fontFamily: 'monospace',
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>
+            {previewUrl}
+          </span>
+
+          <button onClick={copy} title="Copy link" style={{
+            background: 'none', border: 'none', cursor: 'pointer', padding: 4,
+            color: copied ? '#4ade80' : '#64748b', transition: 'color 0.2s',
+          }}>
+            {copied ? <CheckCircle2 size={16} /> : <Copy size={16} />}
+          </button>
+
+          <a href={previewUrl} target="_blank" rel="noopener noreferrer" title="Open in browser" style={{
+            color: '#6C3DE8', padding: 4, display: 'flex',
+          }}>
+            <ExternalLink size={16} />
+          </a>
+        </div>
+
+        {/* Instructions */}
+        <div style={{
+          width: '100%', background: 'rgba(108,61,232,0.06)',
+          border: '1px solid rgba(108,61,232,0.15)', borderRadius: 12, padding: 16,
+        }}>
+          <p style={{ color: '#a78bfa', fontSize: 12, fontWeight: 600, margin: '0 0 8px' }}>HOW TO USE</p>
+          <ol style={{ color: '#64748b', fontSize: 12, margin: 0, paddingLeft: 18, lineHeight: 1.7 }}>
+            <li>Open your phone&apos;s camera or QR scanner app</li>
+            <li>Point at the QR code above</li>
+            <li>Tap the link to open in your mobile browser</li>
+            <li>The app runs fully in your browser — no install needed!</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ProjectDetailClient({ project, files: initialFiles, isPro }: Props) {
   const [files, setFiles] = useState(initialFiles);
   const [mainTab, setMainTab] = useState<MainTab>('code');
@@ -42,11 +143,9 @@ export default function ProjectDetailClient({ project, files: initialFiles, isPr
   function handleFilesUpdated(updatedFiles: Record<string, string>, changedPaths: string[]) {
     setFiles(updatedFiles);
     setRecentlyChanged(changedPaths);
-    // If the currently selected file was changed, keep it selected so user sees the update
     if (selectedFile && changedPaths.includes(selectedFile)) {
-      setSelectedFile(selectedFile); // same value, but content in `files` changed
+      setSelectedFile(selectedFile);
     }
-    // Clear highlight after 5s
     setTimeout(() => setRecentlyChanged([]), 5000);
   }
 
@@ -105,7 +204,7 @@ export default function ProjectDetailClient({ project, files: initialFiles, isPr
           }}>
             {([
               { key: 'code', icon: <Code2 size={13} />, label: 'Code' },
-              { key: 'preview', icon: <Smartphone size={13} />, label: 'Preview' },
+              { key: 'preview', icon: <Smartphone size={13} />, label: 'Run on Phone' },
             ] as const).map((tab) => (
               <button
                 key={tab.key}
@@ -137,7 +236,6 @@ export default function ProjectDetailClient({ project, files: initialFiles, isPr
       {/* ── Body ─────────────────────────────────────────────────────────────── */}
 
       {project.status !== 'done' ? (
-        /* Generating / Error state */
         <div className='flex-1 flex items-center justify-center'>
           <div className='text-center'>
             <div className='w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center mx-auto mb-3 animate-pulse'>
@@ -163,12 +261,12 @@ export default function ProjectDetailClient({ project, files: initialFiles, isPr
           <p className='text-slate-500'>No files found in this project.</p>
         </div>
       ) : mainTab === 'preview' ? (
-        /* ── Preview Tab ─────────────────────────────────────────────────────── */
-        <div className='flex-1 overflow-hidden'>
-          <AppPreview projectId={project.id} projectName={project.name} files={files} />
+        /* ── Run on Phone Tab ─────────────────────────────────────────────── */
+        <div className='flex-1 overflow-hidden flex'>
+          <MobilePreviewPanel projectId={project.id} projectName={project.name} />
         </div>
       ) : (
-        /* ── Code Tab ────────────────────────────────────────────────────────── */
+        /* ── Code Tab ────────────────────────────────────────────────────── */
         <div className='flex-1 flex flex-col overflow-hidden'>
           <div className='flex-1 flex overflow-hidden'>
             {/* File Tree */}
@@ -193,7 +291,7 @@ export default function ProjectDetailClient({ project, files: initialFiles, isPr
             </div>
           </div>
 
-          {/* AI Edit Bar — anchored to bottom of code tab */}
+          {/* AI Edit Bar */}
           <AIEditBar
             projectId={project.id}
             onFilesUpdated={handleFilesUpdated}

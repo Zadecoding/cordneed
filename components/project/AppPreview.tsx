@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Smartphone, ExternalLink, RefreshCw, Monitor } from 'lucide-react';
+import { Smartphone, Monitor, RefreshCw } from 'lucide-react';
 
 interface AppPreviewProps {
   projectId: string;
@@ -9,237 +9,272 @@ interface AppPreviewProps {
   files: Record<string, string>;
 }
 
-type Platform = 'web' | 'ios' | 'android';
+type Platform = 'mobile' | 'tablet' | 'web';
 
-// ── Extract design tokens from project files ──────────────────────────────────
+// ── Extract app design tokens from generated files ────────────────────────────
 
-function extractTokens(files: Record<string, string>) {
+function extractAppData(files: Record<string, string>, appName: string) {
   const colors = files['constants/Colors.ts'] || '';
-  const primary = colors.match(/primary:\s*['"]([^'"]+)['"]/)?.[1] ?? '#6C3DE8';
+  const primary   = colors.match(/primary:\s*['"]([^'"]+)['"]/)?.[1]   ?? '#6C3DE8';
+  const background= colors.match(/background:\s*['"]([^'"]+)['"]/)?.[1]?? '#0f172a';
+  const surface   = colors.match(/surface:\s*['"]([^'"]+)['"]/)?.[1]   ?? '#1e293b';
+  const border    = colors.match(/border:\s*['"]([^'"]+)['"]/)?.[1]    ?? '#334155';
+  const text      = colors.match(/text:\s*['"]([^'"]+)['"]/)?.[1]      ?? '#f1f5f9';
+  const textMuted = colors.match(/textMuted:\s*['"]([^'"]+)['"]/)?.[1] ?? '#94a3b8';
 
-  // Collect tab screen names from (tabs) folder
+  // Collect tab screens
   const tabs: string[] = [];
-  for (const path of Object.keys(files)) {
+  for (const path of Object.keys(files).sort()) {
     const m = path.match(/^app\/\(tabs\)\/(.+)\.tsx$/);
     if (m) {
-      const name = m[1] === 'index' ? 'Home' : m[1].charAt(0).toUpperCase() + m[1].slice(1).replace(/-/g, ' ');
-      tabs.push(name);
+      const raw = m[1];
+      const label = raw === 'index' ? 'Home' : raw.charAt(0).toUpperCase() + raw.slice(1).replace(/-/g, ' ');
+      if (!tabs.includes(label)) tabs.push(label);
     }
   }
   if (tabs.length === 0) tabs.push('Home', 'Explore', 'Profile', 'Settings');
 
-  return { primary, tabs };
+  // Extract cards from home screen
+  const homeCode = files['app/(tabs)/index.tsx'] || files['app/index.tsx'] || '';
+  const cardTitles = [...homeCode.matchAll(/title:\s*['"]([^'"]{4,40})['"]/g)].map(m => m[1]).slice(0, 4);
+  if (cardTitles.length === 0) cardTitles.push('Getting Started', 'Advanced Module', 'Daily Challenge', 'Community Event');
+
+  // App description from prompt or app.json
+  const appJson = files['app.json'] || '';
+  const descMatch = appJson.match(/"description":\s*"([^"]+)"/);
+  const description = descMatch?.[1] || '';
+
+  return { primary, background, surface, border, text, textMuted, tabs: tabs.slice(0, 5), cardTitles, description };
 }
 
-// ── Build a self-contained standalone App.js for Snack ────────────────────────
-// This creates a simple but visually accurate preview of the generated app.
-// We inline everything into one file so Snack can run it without resolving imports.
+// ── Tab icon SVGs (inline, no external dep) ──────────────────────────────────
 
-function buildPreviewApp(projectName: string, files: Record<string, string>): string {
-  const { primary, tabs } = extractTokens(files);
+function TabIcon({ name, color, size = 20 }: { name: string; color: string; size?: number }): React.ReactElement {
+  const n = name.toLowerCase();
 
-  const tabIconMap: Record<string, string> = {
-    home: 'home', explore: 'compass', discover: 'compass',
-    profile: 'person', account: 'person', settings: 'settings',
-    search: 'search', favorites: 'heart', library: 'library-books',
-    chat: 'chat', message: 'message', notifications: 'notifications',
-    analytics: 'bar-chart', stats: 'bar-chart', map: 'map',
+  // Simple geometric icon placeholders that match the concept
+  const icons: Record<string, React.ReactElement> = {
+    home: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+      </svg>
+    ),
+    explore: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>
+      </svg>
+    ),
+    discover: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>
+      </svg>
+    ),
+    profile: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
+      </svg>
+    ),
+    account: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
+      </svg>
+    ),
+    settings: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/>
+      </svg>
+    ),
+    cart: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/>
+      </svg>
+    ),
+    search: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+    ),
   };
 
-  function getIcon(name: string): string {
-    const key = name.toLowerCase().replace(/\s+/g, '');
-    for (const [k, v] of Object.entries(tabIconMap)) {
-      if (key.includes(k)) return v;
-    }
-    return 'circle';
-  }
+  const key = Object.keys(icons).find(k => n.includes(k)) ?? 'explore';
+  return icons[key] ?? icons.explore;
+}
 
-  const tabsJson = JSON.stringify(tabs.slice(0, 5).map(t => ({ name: t, icon: getIcon(t) })));
+// ── Screen renderers ──────────────────────────────────────────────────────────
 
-  // Get the home screen content (index.tsx) to show as context
-  const homeFile = files['app/(tabs)/index.tsx'] || files['app/index.tsx'] || '';
-
-  // Extract top-level card titles if present (simple regex)
-  const cardTitles: string[] = [];
-  const matches = homeFile.matchAll(/title:\s*['"]([^'"]{3,40})['"]/g);
-  for (const m of matches) cardTitles.push(m[1]);
-  const cards = cardTitles.slice(0, 4);
-  if (cards.length === 0) cards.push('Getting Started', 'Advanced Module', 'Daily Challenge', 'Community Event');
-
-  return `import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, StatusBar, Platform } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
-
-const PRIMARY = '${primary}';
-const BG = '#0f172a';
-const SURFACE = '#1e293b';
-const BORDER = '#334155';
-const TEXT = '#f1f5f9';
-const MUTED = '#94a3b8';
-
-const TABS = ${tabsJson};
-const CARDS = ${JSON.stringify(cards)};
-const APP_NAME = '${projectName.replace(/'/g, "\\'")}';
-
-const STATS = [
-  { label: 'Active', value: '24', color: '#f59e0b' },
-  { label: 'Done', value: '142', color: '#22c55e' },
-  { label: 'Streak', value: '7d', color: '#ef4444' },
-];
-
-export default function App() {
-  const [activeTab, setActiveTab] = useState(0);
-  const [activePct] = useState([60, 30, 90, 15]);
+function HomeScreen({ app }: { app: ReturnType<typeof extractAppData> & { name: string } }) {
+  const { primary, surface, border, text, textMuted, cardTitles, background } = app;
+  const pcts = [60, 30, 90, 15];
+  const tags = ['Beginner', 'Pro', 'Daily', 'Live'];
+  const tagColors = [primary + '33', '#f59e0b33', '#22c55e33', '#ef444433'];
+  const tagTexts = [primary, '#f59e0b', '#22c55e', '#ef4444'];
 
   return (
-    <View style={s.root}>
-      <StatusBar barStyle="light-content" backgroundColor={BG} />
-
+    <div style={{ padding: '16px', overflowY: 'auto', height: '100%', boxSizing: 'border-box' }}>
       {/* Header */}
-      <View style={s.header}>
-        <Text style={s.greeting}>Good morning 👋</Text>
-        <Text style={s.appName}>{APP_NAME}</Text>
-      </View>
+      <div style={{ marginBottom: '20px' }}>
+        <div style={{ fontSize: '11px', color: textMuted, marginBottom: '2px' }}>Good morning 👋</div>
+        <div style={{ fontSize: '22px', fontWeight: '700', color: text }}>{app.name}</div>
+      </div>
 
-      <ScrollView style={s.scroll} contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
-
-        {/* Stats row */}
-        <View style={s.statsRow}>
-          {STATS.map(st => (
-            <View key={st.label} style={s.statCard}>
-              <Text style={[s.statVal, { color: st.color }]}>{st.value}</Text>
-              <Text style={s.statLbl}>{st.label}</Text>
-            </View>
-          ))}
-        </View>
-
-        {/* Banner */}
-        <View style={[s.banner, { borderColor: PRIMARY + '55', backgroundColor: PRIMARY + '18' }]}>
-          <Text style={[s.bannerTag, { color: PRIMARY }]}>FEATURED</Text>
-          <Text style={s.bannerTitle}>Start your journey today</Text>
-          <Text style={s.bannerSub}>Explore all features and reach your goals faster.</Text>
-          <TouchableOpacity style={[s.bannerBtn, { backgroundColor: PRIMARY }]}>
-            <Text style={s.bannerBtnTxt}>Get Started</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Items */}
-        <Text style={s.sectionTitle}>Continue where you left off</Text>
-        {CARDS.map((card, i) => (
-          <View key={card} style={s.card}>
-            <View style={s.cardRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={s.cardTitle}>{card}</Text>
-                <Text style={s.cardSub}>{['5 min', '12 min', '8 min', '15 min'][i % 4]} read · {['Beginner', 'Pro', 'Daily', 'Live'][i % 4]}</Text>
-              </View>
-              <MaterialIcons name="chevron-right" size={18} color={MUTED} />
-            </View>
-            <View style={s.progBg}>
-              <View style={[s.progFill, { width: activePct[i % 4] + '%', backgroundColor: PRIMARY }]} />
-            </View>
-            <Text style={s.progTxt}>{activePct[i % 4]}% complete</Text>
-          </View>
+      {/* Stats */}
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '14px' }}>
+        {[{ l: 'Active', v: '24', c: '#f59e0b' }, { l: 'Done', v: '142', c: '#22c55e' }, { l: 'Streak', v: '7d', c: '#ef4444' }].map(s => (
+          <div key={s.l} style={{ flex: 1, background: surface, borderRadius: '12px', padding: '12px', textAlign: 'center', border: `1px solid ${border}` }}>
+            <div style={{ fontSize: '18px', fontWeight: '700', color: s.c }}>{s.v}</div>
+            <div style={{ fontSize: '10px', color: textMuted, marginTop: '2px' }}>{s.l}</div>
+          </div>
         ))}
+      </div>
 
-        <View style={{ height: 16 }} />
-      </ScrollView>
+      {/* Banner */}
+      <div style={{ background: primary + '18', border: `1px solid ${primary}55`, borderRadius: '14px', padding: '14px', marginBottom: '16px' }}>
+        <div style={{ fontSize: '9px', fontWeight: '700', color: primary, letterSpacing: '1px', marginBottom: '4px' }}>FEATURED</div>
+        <div style={{ fontSize: '15px', fontWeight: '700', color: text, marginBottom: '4px' }}>Start your journey today</div>
+        <div style={{ fontSize: '11px', color: textMuted, marginBottom: '10px' }}>Explore all features and reach your goals faster.</div>
+        <div style={{ background: primary, borderRadius: '8px', padding: '7px 14px', display: 'inline-block', fontSize: '12px', fontWeight: '600', color: '#fff' }}>Get Started →</div>
+      </div>
 
-      {/* Tab bar */}
-      <View style={s.tabBar}>
-        {TABS.map((tab, i) => (
-          <TouchableOpacity key={tab.name} style={s.tabItem} onPress={() => setActiveTab(i)} activeOpacity={0.7}>
-            <MaterialIcons
-              name={tab.icon}
-              size={22}
-              color={activeTab === i ? PRIMARY : MUTED}
-            />
-            <Text style={[s.tabLabel, activeTab === i && { color: PRIMARY }]}>{tab.name}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-    </View>
+      {/* Cards */}
+      <div style={{ fontSize: '14px', fontWeight: '700', color: text, marginBottom: '10px' }}>Continue Learning</div>
+      {cardTitles.map((title, i) => (
+        <div key={title} style={{ background: surface, border: `1px solid ${border}`, borderRadius: '14px', padding: '14px', marginBottom: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px' }}>
+                <span style={{ fontSize: '13px', fontWeight: '600', color: text }}>{title}</span>
+                <span style={{ background: tagColors[i], borderRadius: '5px', padding: '2px 6px', fontSize: '9px', fontWeight: '700', color: tagTexts[i] }}>{tags[i]}</span>
+              </div>
+              <div style={{ fontSize: '11px', color: textMuted }}>{['5 min read', '12 min read', '8 min read', '15 min read'][i]}</div>
+            </div>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={textMuted} strokeWidth={2}><path d="M9 18l6-6-6-6"/></svg>
+          </div>
+          <div style={{ height: '5px', background: border, borderRadius: '4px', overflow: 'hidden', marginBottom: '4px' }}>
+            <div style={{ height: '100%', width: `${pcts[i]}%`, background: primary, borderRadius: '4px' }} />
+          </div>
+          <div style={{ fontSize: '10px', color: textMuted }}>{pcts[i]}% complete</div>
+        </div>
+      ))}
+    </div>
   );
 }
 
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: BG },
-  header: { paddingTop: Platform.OS === 'ios' ? 54 : 32, paddingHorizontal: 20, paddingBottom: 16, backgroundColor: BG },
-  greeting: { fontSize: 12, color: MUTED },
-  appName: { fontSize: 26, fontWeight: '700', color: TEXT },
-  scroll: { flex: 1 },
-  scrollContent: { padding: 16 },
-  statsRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
-  statCard: { flex: 1, backgroundColor: SURFACE, borderRadius: 14, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: BORDER },
-  statVal: { fontSize: 20, fontWeight: '700' },
-  statLbl: { fontSize: 11, color: MUTED, marginTop: 2 },
-  banner: { borderRadius: 16, padding: 16, borderWidth: 1, marginBottom: 18 },
-  bannerTag: { fontSize: 10, fontWeight: '700', letterSpacing: 1, marginBottom: 6 },
-  bannerTitle: { fontSize: 18, fontWeight: '700', color: TEXT, marginBottom: 4 },
-  bannerSub: { fontSize: 13, color: MUTED, marginBottom: 14 },
-  bannerBtn: { borderRadius: 10, paddingVertical: 10, paddingHorizontal: 16, alignSelf: 'flex-start' },
-  bannerBtnTxt: { color: '#fff', fontWeight: '600', fontSize: 13 },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: TEXT, marginBottom: 12 },
-  card: { backgroundColor: SURFACE, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: BORDER, marginBottom: 10 },
-  cardRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
-  cardTitle: { fontSize: 15, fontWeight: '600', color: TEXT, marginBottom: 3 },
-  cardSub: { fontSize: 12, color: MUTED },
-  progBg: { height: 5, backgroundColor: BORDER, borderRadius: 4, overflow: 'hidden', marginBottom: 4 },
-  progFill: { height: '100%', borderRadius: 4 },
-  progTxt: { fontSize: 11, color: MUTED },
-  tabBar: { flexDirection: 'row', backgroundColor: '#0a1628', borderTopWidth: 1, borderTopColor: BORDER, paddingBottom: Platform.OS === 'ios' ? 20 : 8, paddingTop: 8 },
-  tabItem: { flex: 1, alignItems: 'center', gap: 3 },
-  tabLabel: { fontSize: 10, fontWeight: '600', color: MUTED },
-});`;
+function GenericScreen({ screenName, app }: { screenName: string; app: ReturnType<typeof extractAppData> }) {
+  const { primary, surface, border, text, textMuted } = app;
+  const isProfile = /profile|account/i.test(screenName);
+  const isSettings = /setting|config/i.test(screenName);
+
+  if (isProfile) {
+    return (
+      <div style={{ padding: '16px', overflowY: 'auto', height: '100%', boxSizing: 'border-box' }}>
+        <div style={{ fontSize: '20px', fontWeight: '700', color: text, marginBottom: '16px' }}>{screenName}</div>
+        <div style={{ background: surface, border: `1px solid ${border}`, borderRadius: '16px', padding: '16px', marginBottom: '14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '16px' }}>
+            <div style={{ width: '60px', height: '60px', borderRadius: '30px', background: primary + '22', border: `2px solid ${primary}55`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={primary} strokeWidth={2}><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </div>
+            <div>
+              <div style={{ fontSize: '16px', fontWeight: '700', color: text }}>Alex Johnson</div>
+              <div style={{ fontSize: '12px', color: textMuted }}>alex@example.com</div>
+              <div style={{ marginTop: '5px', background: primary + '22', borderRadius: '5px', padding: '2px 8px', display: 'inline-block', fontSize: '10px', fontWeight: '700', color: primary }}>Pro Member</div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', borderTop: `1px solid ${border}`, paddingTop: '12px' }}>
+            {[['142', 'Completed'], ['7d', 'Streak'], ['2.4k', 'Points']].map(([v, l], i) => (
+              <div key={l} style={{ flex: 1, textAlign: 'center', borderLeft: i > 0 ? `1px solid ${border}` : 'none' }}>
+                <div style={{ fontSize: '17px', fontWeight: '700', color: text }}>{v}</div>
+                <div style={{ fontSize: '10px', color: textMuted }}>{l}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+        {['Edit Profile', 'Notifications', 'Privacy & Security', 'Help & Support'].map(item => (
+          <div key={item} style={{ display: 'flex', alignItems: 'center', gap: '12px', background: surface, border: `1px solid ${border}`, borderRadius: '12px', padding: '14px', marginBottom: '8px' }}>
+            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: primary + '18', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={primary} strokeWidth={2}><circle cx="12" cy="7" r="4"/><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/></svg>
+            </div>
+            <span style={{ flex: 1, fontSize: '14px', color: text }}>{item}</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={textMuted} strokeWidth={2}><path d="M9 18l6-6-6-6"/></svg>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (isSettings) {
+    const sections = [
+      { title: 'Preferences', items: ['Dark Mode', 'Notifications', 'Sound Effects'] },
+      { title: 'Account', items: ['Change Password', 'Two-Factor Auth'] },
+    ];
+    return (
+      <div style={{ padding: '16px', overflowY: 'auto', height: '100%', boxSizing: 'border-box' }}>
+        <div style={{ fontSize: '20px', fontWeight: '700', color: text, marginBottom: '16px' }}>{screenName}</div>
+        {sections.map(s => (
+          <div key={s.title} style={{ background: surface, border: `1px solid ${border}`, borderRadius: '14px', overflow: 'hidden', marginBottom: '12px' }}>
+            <div style={{ fontSize: '10px', fontWeight: '700', color: textMuted, padding: '12px 14px 4px', letterSpacing: '1px', textTransform: 'uppercase' }}>{s.title}</div>
+            {s.items.map((item, i) => (
+              <div key={item} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 14px', borderTop: i === 0 ? `1px solid ${border}` : 'none' }}>
+                <span style={{ flex: 1, fontSize: '14px', color: text }}>{item}</span>
+                <div style={{ width: '36px', height: '20px', borderRadius: '10px', background: i === 0 ? primary : border, position: 'relative' }}>
+                  <div style={{ position: 'absolute', top: '2px', right: i === 0 ? '2px' : 'auto', left: i === 0 ? 'auto' : '2px', width: '16px', height: '16px', borderRadius: '8px', background: '#fff' }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  // Explore / generic
+  const items = ['Quick Start', 'Advanced Guide', 'Tips & Tricks', 'Video Tutorial', 'Best Practices'];
+  return (
+    <div style={{ padding: '16px', overflowY: 'auto', height: '100%', boxSizing: 'border-box' }}>
+      <div style={{ fontSize: '20px', fontWeight: '700', color: text, marginBottom: '14px' }}>{screenName}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: surface, border: `1px solid ${border}`, borderRadius: '12px', padding: '10px 12px', marginBottom: '12px' }}>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={textMuted} strokeWidth={2}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <span style={{ fontSize: '13px', color: textMuted }}>Search…</span>
+      </div>
+      <div style={{ display: 'flex', gap: '7px', marginBottom: '14px' }}>
+        {['All', 'Popular', 'New'].map((c, i) => (
+          <div key={c} style={{ padding: '5px 14px', borderRadius: '14px', background: i === 0 ? primary : surface, border: `1px solid ${i === 0 ? primary : border}`, fontSize: '12px', fontWeight: '600', color: i === 0 ? '#fff' : textMuted }}>{c}</div>
+        ))}
+      </div>
+      {items.map(item => (
+        <div key={item} style={{ display: 'flex', alignItems: 'center', gap: '12px', background: surface, border: `1px solid ${border}`, borderRadius: '14px', padding: '13px', marginBottom: '8px' }}>
+          <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: primary + '18', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={primary} strokeWidth={2}><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: '13px', fontWeight: '600', color: text, marginBottom: '3px' }}>{item}</div>
+            <div style={{ fontSize: '11px', color: textMuted }}>6 min · Free</div>
+          </div>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={textMuted} strokeWidth={2}><path d="M9 18l6-6-6-6"/></svg>
+        </div>
+      ))}
+    </div>
+  );
 }
 
-// ── Build Snack embed URL using files param ───────────────────────────────────
+// ── Main component ─────────────────────────────────────────────────────────────
 
-function buildSnackEmbedUrl(
-  appCode: string,
-  platform: Platform
-): string {
-  const snackFiles = JSON.stringify({
-    'App.js': { type: 'CODE', contents: appCode },
-  });
+export default function AppPreview({ projectId: _pid, projectName, files }: AppPreviewProps) {
+  const [platform, setPlatform] = useState<Platform>('mobile');
+  const [activeTab, setActiveTab] = useState(0);
+  const app = useMemo(() => ({ ...extractAppData(files, projectName), name: projectName }), [files, projectName]);
 
-  const params = new URLSearchParams({
-    iframeId: 'cordneed-preview',
-    preview: 'true',
-    platform,
-    theme: 'dark',
-    supportedPlatforms: 'web,ios,android',
-    files: snackFiles,
-  });
+  const { primary, background, border, textMuted, tabs } = app;
 
-  return `https://snack.expo.dev/embedded?${params.toString()}`;
-}
+  const frameSize = {
+    mobile: { outer: '375px', height: '720px', radius: '44px' },
+    tablet: { outer: '500px', height: '700px', radius: '24px' },
+    web:    { outer: '100%',  height: '100%',  radius: '0px' },
+  };
 
-// ── Component ─────────────────────────────────────────────────────────────────
+  const frame = frameSize[platform];
+  const isNative = platform !== 'web';
 
-const PLATFORM_FRAME: Record<Platform, { w: string; h: string; r: string }> = {
-  web:     { w: '100%',   h: '100%', r: '0' },
-  ios:     { w: '375px',  h: '700px', r: '44px' },
-  android: { w: '360px',  h: '700px', r: '24px' },
-};
-
-export default function AppPreview({ projectId, projectName, files }: AppPreviewProps) {
-  const [platform, setPlatform] = useState<Platform>('web');
-  const [iframeKey, setIframeKey] = useState(0);
-  const [iframeLoaded, setIframeLoaded] = useState(false);
-
-  // Build the preview code once (memoized)
-  const previewCode = useMemo(() => buildPreviewApp(projectName, files), [projectName, files]);
-  const snackUrl = useMemo(() => buildSnackEmbedUrl(previewCode, platform), [previewCode, platform]);
-  const snackShareUrl = useMemo(() => {
-    const params = new URLSearchParams({
-      platform: 'web',
-      preview: 'true',
-      files: JSON.stringify({ 'App.js': { type: 'CODE', contents: previewCode } }),
-    });
-    return `https://snack.expo.dev/?${params.toString()}`;
-  }, [previewCode]);
-
-  const frame = PLATFORM_FRAME[platform];
+  const currentScreen = tabs[activeTab] ?? 'Home';
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#030812' }}>
@@ -247,71 +282,91 @@ export default function AppPreview({ projectId, projectName, files }: AppPreview
       {/* Toolbar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', flexShrink: 0, background: '#060d1a', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
         <Smartphone size={14} color='#6366f1' />
-        <span style={{ color: '#94a3b8', fontSize: '13px', fontWeight: 600 }}>Live Preview</span>
+        <span style={{ color: '#94a3b8', fontSize: '13px', fontWeight: 600 }}>App Preview</span>
         <span style={{ fontSize: '11px', color: '#334155', background: 'rgba(255,255,255,0.04)', padding: '1px 8px', borderRadius: '999px', border: '1px solid rgba(255,255,255,0.06)' }}>
-          Expo Snack
+          Interactive Mockup
         </span>
         <div style={{ flex: 1 }} />
 
         {/* Platform tabs */}
         <div style={{ display: 'flex', gap: '4px', background: 'rgba(255,255,255,0.05)', padding: '3px', borderRadius: '10px' }}>
-          {(['web', 'ios', 'android'] as const).map(p => (
-            <button key={p} onClick={() => { setPlatform(p); setIframeLoaded(false); }}
-              style={{ padding: '4px 12px', borderRadius: '7px', fontSize: '12px', fontWeight: 600, border: 'none', cursor: 'pointer', transition: 'all 0.2s', background: platform === p ? 'rgba(99,102,241,0.8)' : 'transparent', color: platform === p ? '#fff' : '#64748b', textTransform: 'capitalize' }}>
-              {p === 'web' && <Monitor size={11} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'middle' }} />}
-              {p}
+          {([['mobile', 'Mobile'], ['tablet', 'Tablet'], ['web', 'Full']] as const).map(([p, lbl]) => (
+            <button key={p} onClick={() => setPlatform(p)}
+              style={{ padding: '4px 11px', borderRadius: '7px', fontSize: '11px', fontWeight: 600, border: 'none', cursor: 'pointer', transition: 'all 0.2s', background: platform === p ? 'rgba(99,102,241,0.8)' : 'transparent', color: platform === p ? '#fff' : '#64748b' }}>
+              {p === 'web' && <Monitor size={10} style={{ display: 'inline', marginRight: '3px', verticalAlign: 'middle' }} />}
+              {lbl}
             </button>
           ))}
         </div>
 
-        {/* Refresh */}
-        <button onClick={() => { setIframeKey(k => k + 1); setIframeLoaded(false); }}
-          title='Reload'
-          style={{ padding: '6px', borderRadius: '8px', border: 'none', background: 'transparent', cursor: 'pointer', color: '#475569', transition: 'all 0.2s' }}
-          onMouseEnter={e => (e.currentTarget.style.color = '#94a3b8')}
-          onMouseLeave={e => (e.currentTarget.style.color = '#475569')}>
-          <RefreshCw size={14} />
-        </button>
+        {/* Tab picker */}
+        <div style={{ display: 'flex', gap: '4px' }}>
+          {tabs.map((t, i) => (
+            <button key={t} onClick={() => setActiveTab(i)}
+              style={{ padding: '3px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 600, border: `1px solid ${i === activeTab ? primary + '88' : 'rgba(255,255,255,0.06)'}`, cursor: 'pointer', background: i === activeTab ? primary + '22' : 'transparent', color: i === activeTab ? primary : '#64748b', transition: 'all 0.2s' }}>
+              {t}
+            </button>
+          ))}
+        </div>
 
-        {/* Open in Snack */}
-        <a href={snackShareUrl} target='_blank' rel='noopener noreferrer' title='Open in Expo Snack'
-          style={{ padding: '6px', borderRadius: '8px', color: '#475569', display: 'flex', alignItems: 'center', transition: 'all 0.2s' }}
+        <button onClick={() => setActiveTab(0)}
+          title='Reset'
+          style={{ padding: '6px', borderRadius: '8px', border: 'none', background: 'transparent', cursor: 'pointer', color: '#475569' }}
           onMouseEnter={e => (e.currentTarget.style.color = '#94a3b8')}
           onMouseLeave={e => (e.currentTarget.style.color = '#475569')}>
-          <ExternalLink size={14} />
-        </a>
+          <RefreshCw size={13} />
+        </button>
       </div>
 
       {/* Preview area */}
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', padding: platform === 'web' ? '0' : '24px', background: platform === 'web' ? '#050d1a' : 'radial-gradient(ellipse at center, #0d1a30 0%, #030812 100%)' }}>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', padding: isNative ? '24px' : '0', background: isNative ? 'radial-gradient(ellipse at center, #0d1a30 0%, #030812 100%)' : background }}>
         <div style={{
-          width: frame.w, height: frame.h, borderRadius: frame.r,
-          overflow: 'hidden', position: 'relative', maxWidth: '100%', maxHeight: '100%',
-          boxShadow: platform !== 'web' ? '0 0 0 8px #1e293b, 0 0 0 10px #0f172a, 0 40px 100px rgba(0,0,0,0.8)' : 'none',
+          width: frame.outer, height: frame.height,
+          maxWidth: '100%', maxHeight: '100%',
+          borderRadius: frame.radius, overflow: 'hidden', position: 'relative',
+          boxShadow: isNative ? '0 0 0 8px #1e293b, 0 0 0 11px #0f172a, 0 40px 100px rgba(0,0,0,0.8)' : 'none',
+          display: 'flex', flexDirection: 'column',
+          background: background,
+          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
         }}>
-          {/* Loading overlay */}
-          {!iframeLoaded && (
-            <div style={{ position: 'absolute', inset: 0, zIndex: 10, background: '#050d1a', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
-              <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'pulse 2s ease-in-out infinite' }}>
-                <Smartphone size={22} color='#fff' />
+          {/* Status bar */}
+          {isNative && (
+            <div style={{ background: background, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 20px 4px', flexShrink: 0 }}>
+              <span style={{ fontSize: '12px', fontWeight: '600', color: '#f1f5f9' }}>9:41</span>
+              <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
+                {['wifi', 'battery'].map(i => (
+                  <svg key={i} width={i === 'battery' ? '24' : '16'} height='12' viewBox={i === 'battery' ? '0 0 24 12' : '0 0 18 14'} fill='none'>
+                    {i === 'wifi'
+                      ? <><path d="M9 11h0M5.5 7.5a5 5 0 017 0M2 4a9 9 0 0114 0" stroke='#f1f5f9' strokeWidth={1.5} strokeLinecap='round'/></>
+                      : <><rect x="1" y="1" width="20" height="10" rx="2" stroke='#f1f5f9' strokeWidth={1.5}/><rect x="21" y="3.5" width="2" height="5" rx="1" fill='#f1f5f9'/><rect x="2.5" y="2.5" width="15" height="7" rx="1" fill='#f1f5f9'/></>}
+                  </svg>
+                ))}
               </div>
-              <p style={{ color: '#64748b', fontSize: '13px', margin: 0 }}>Loading preview…</p>
             </div>
           )}
-          <iframe
-            key={`${iframeKey}-${platform}`}
-            src={snackUrl}
-            style={{ width: '100%', height: '100%', border: 'none' }}
-            allow='accelerometer; ambient-light-sensor; camera; encrypted-media; geolocation; gyroscope; microphone'
-            sandbox='allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts allow-downloads'
-            onLoad={() => setIframeLoaded(true)}
-          />
+
+          {/* Screen content */}
+          <div style={{ flex: 1, overflow: 'hidden', background: background }}>
+            {activeTab === 0
+              ? <HomeScreen app={app} />
+              : <GenericScreen screenName={currentScreen} app={app} />}
+          </div>
+
+          {/* Tab bar */}
+          <div style={{ background: '#0a1628', borderTop: `1px solid ${border}`, display: 'flex', flexShrink: 0, paddingBottom: isNative ? '20px' : '8px', paddingTop: '8px' }}>
+            {tabs.map((tab, i) => {
+              const active = i === activeTab;
+              return (
+                <button key={tab} onClick={() => setActiveTab(i)}
+                  style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', background: 'transparent', border: 'none', cursor: 'pointer', padding: '2px 0' }}>
+                  <TabIcon name={tab} color={active ? primary : textMuted} size={22} />
+                  <span style={{ fontSize: '10px', fontWeight: '600', color: active ? primary : textMuted, transition: 'color 0.2s' }}>{tab}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
-
-      <style>{`
-        @keyframes pulse { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:.7; transform:scale(.95); } }
-      `}</style>
     </div>
   );
 }

@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { Mistral } from '@mistralai/mistralai';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 
-export const maxDuration = 60;
+export const maxDuration = 60; // Vercel limit
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 const mistral = new Mistral({ apiKey: process.env.MISTRAL_API_KEY! });
 
 // ─── Build the targeted-edit prompt ──────────────────────────────────────────
@@ -17,7 +15,7 @@ function buildEditPrompt(
   // Only send the first ~4000 chars of each file to reduce token usage
   const filesSummary = Object.entries(files)
     .map(([path, content]) => {
-      const preview = content.length > 2000 ? content.slice(0, 2000) + '\n... (truncated)' : content;
+      const preview = content.length > 2500 ? content.slice(0, 2500) + '\n... (truncated)' : content;
       return `=== ${path} ===\n${preview}`;
     })
     .join('\n\n');
@@ -31,7 +29,7 @@ USER'S CHANGE REQUEST:
 ${changeRequest}
 
 CRITICAL RULES:
-1. Return ONLY valid JSON — no markdown, no explanation, no code blocks.
+1. Return ONLY valid JSON — no markdown, no explanation before or after.
 2. The JSON must be an object where keys are ONLY the file paths that need to be changed.
 3. ONLY include files you are actually modifying. Do NOT include unchanged files.
 4. Return the COMPLETE new content for each modified file (not diffs — full file content).
@@ -39,65 +37,57 @@ CRITICAL RULES:
 6. Keep all existing functionality intact unless explicitly asked to remove it.
 7. The returned JSON shape: { "path/to/file.tsx": "full new content...", ... }
 
-Make ONLY the changes needed to fulfill the request. Return the minimal set of files that need to change.`;
+Make ONLY the changes needed to fulfill the request. Return the minimal set of files that need to change. start your response with { immediately.`;
 }
 
-// ─── Try Gemini first, Mistral fallback ──────────────────────────────────────
+// ─── Mistral Edit Call Logic ──────────────────────────────────────────────────
 
-async function applyEditsWithGemini(prompt: string): Promise<Record<string, string> | null> {
-  const models = [
-    'gemini-2.0-flash-lite',    // best free-tier quota
-    'gemini-1.5-flash',         // stable free quota
-    'gemini-1.5-pro',           // higher quality
-  ];
-  for (const modelName of models) {
-    try {
-      const model = genAI.getGenerativeModel({ model: modelName });
-      const result = await Promise.race<string>([
-        model.generateContent(prompt).then((r) => r.response.text()),
-        new Promise<string>((_, reject) => setTimeout(() => reject(new Error('timeout')), 22_000)),
-      ]);
-      return parseEditOutput(result);
-    } catch (err) {
-      console.warn(`[Edit] Gemini ${modelName} failed:`, err);
-    }
+function parseEditOutput(raw: string): Record<string, string> | null {
+  let text = raw.trim();
+
+  // Strip markdown fences
+  const jsonFence = text.match(/```json\s*([\s\S]*?)```/);
+  const plainFence = text.match(/```\s*([\s\S]*?)```/);
+  if (jsonFence) text = jsonFence[1].trim();
+  else if (plainFence) text = plainFence[1].trim();
+
+  // Slice from first { to last }
+  const first = text.indexOf('{');
+  const last = text.lastIndexOf('}');
+  if (first !== -1 && last !== -1 && last > first) {
+    text = text.slice(first, last + 1);
   }
-  return null;
-}
 
-async function applyEditsWithMistral(prompt: string): Promise<Record<string, string> | null> {
   try {
-    const res = await Promise.race<Record<string, string> | null>([
-      mistral.chat
-        .complete({
-          model: 'mistral-large-latest',
-          messages: [{ role: 'user', content: prompt }],
-          temperature: 0.2,
-          maxTokens: 8192,
-        })
-        .then((r) => parseEditOutput(r.choices?.[0]?.message?.content as string ?? '')),
-      new Promise<null>((_, reject) => setTimeout(() => reject(new Error('timeout')), 50_000)),
-    ]);
-    return res;
-  } catch (err) {
-    console.warn('[Edit] Mistral fallback failed:', err);
-    return null;
-  }
-}
-
-function parseEditOutput(text: string): Record<string, string> | null {
-  let clean = text.trim();
-  if (clean.startsWith('```json')) clean = clean.slice(7);
-  if (clean.startsWith('```')) clean = clean.slice(3);
-  if (clean.endsWith('```')) clean = clean.slice(0, -3);
-  clean = clean.trim();
-  try {
-    const parsed = JSON.parse(clean);
+    const parsed = JSON.parse(text);
     if (typeof parsed === 'object' && !Array.isArray(parsed)) {
       return parsed as Record<string, string>;
     }
-  } catch { /* fall through */ }
+  } catch (err) {
+    console.warn('[Edit] JSON parse failed:', (err as Error).message.slice(0, 50));
+  }
   return null;
+}
+
+async function callMistralEdit(prompt: string, model: string, timeoutMs: number): Promise<Record<string, string> | null> {
+  console.log(`[Edit] Mistral trying: ${model}`);
+  try {
+    const text = await Promise.race<string>([
+      mistral.chat
+        .complete({
+          model,
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.1,
+          maxTokens: 12000,
+        })
+        .then((r) => (r.choices?.[0]?.message?.content as string) ?? ''),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), timeoutMs)),
+    ]);
+    return parseEditOutput(text);
+  } catch (err) {
+    console.warn(`[Edit] Mistral ${model} failed:`, (err as Error).message);
+    return null;
+  }
 }
 
 // ─── Route handler ────────────────────────────────────────────────────────────
@@ -131,12 +121,16 @@ export async function POST(
 
     const existingFiles = (project.files as Record<string, string>) || {};
 
-    // Build prompt and call AI
+    // Build prompt and call AI (Mistral only)
     const editPrompt = buildEditPrompt(changeRequest.trim(), existingFiles);
 
-    let changedFiles = await applyEditsWithGemini(editPrompt);
-    if (!changedFiles) {
-      changedFiles = await applyEditsWithMistral(editPrompt);
+    // Try mistral-small first (fast)
+    let changedFiles = await callMistralEdit(editPrompt, 'mistral-small-latest', 45_000);
+    
+    // Fallback to mistral-large if small fails
+    if (!changedFiles || Object.keys(changedFiles).length === 0) {
+      console.log('[Edit] mistral-small failed or no files modified, falling back to mistral-large');
+      changedFiles = await callMistralEdit(editPrompt, 'mistral-large-latest', 58_000);
     }
 
     if (!changedFiles || Object.keys(changedFiles).length === 0) {
@@ -145,6 +139,8 @@ export async function POST(
         { status: 422 }
       );
     }
+
+    console.log(`[Edit] Successfully modified ${Object.keys(changedFiles).length} files`);
 
     // Merge changed files into existing files
     const updatedFiles = { ...existingFiles, ...changedFiles };

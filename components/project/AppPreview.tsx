@@ -101,6 +101,14 @@ function buildSandpackFiles(files: Record<string, string>): Record<string, strin
     '/react-native-safe-area-context.tsx': { code: SAFE_AREA_SHIM } as any,
     '/expo-status-bar.tsx': { code: `export const StatusBar = () => null;` } as any,
     '/vector-icons.tsx': { code: `import React from 'react';\nexport const Ionicons = ({ color, size, style }) => <span style={{ color, fontSize: size, display: 'inline-block', lineHeight: 1, ...style }}>💠</span>;\nexport const MaterialIcons = Ionicons;\nexport const FontAwesome = Ionicons;\nexport const Feather = Ionicons;` } as any,
+    
+    // Core Virtual node_modules for third-party compatibility
+    '/node_modules/react-native/package.json': { code: '{"name":"react-native","version":"0.74.0","main":"index.js"}' } as any,
+    '/node_modules/react-native/index.js': { code: RN_SHIM } as any,
+    '/node_modules/react-native-safe-area-context/package.json': { code: '{"name":"react-native-safe-area-context","version":"4.10.5","main":"index.js"}' } as any,
+    '/node_modules/react-native-safe-area-context/index.js': { code: SAFE_AREA_SHIM } as any,
+    '/node_modules/expo-status-bar/package.json': { code: '{"name":"expo-status-bar","version":"1.12.1","main":"index.js"}' } as any,
+    '/node_modules/expo-status-bar/index.js': { code: `export const StatusBar = () => null;` } as any,
   };
 
   // Collect all files (components, constants, screens)
@@ -233,13 +241,13 @@ export default function AppPreview({ projectId, projectName, files }: AppPreview
     const safeDeps: Record<string, string> = {
       react: '18.2.0',
       'react-dom': '18.2.0',
-      // Alias react-native to react-native-web so 3rd party libs like chart-kit can resolve it
-      'react-native': 'npm:react-native-web@0.19.10',
     };
 
     for (const [k, v] of Object.entries(deps)) {
-      if (!blocked.includes(k)) {
-        safeDeps[k] = v === '*' ? 'latest' : v;
+      if (!blocked.includes(k) && typeof v === 'string') {
+        safeDeps[k] = v.trim();
+        // Fallback for * versions which can break Sandpack's packager
+        if (safeDeps[k] === '*' || safeDeps[k] === '') safeDeps[k] = 'latest';
       }
     }
 

@@ -197,6 +197,17 @@ const style = document.createElement('style');
 style.textContent = '@keyframes spin { to { transform: rotate(360deg); } } * { box-sizing: border-box; } body { margin: 0; background: ${colors.background}; } #root { height: 100vh; display: flex; flex-direction: column; overflow: hidden; } ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-thumb { background: ${colors.border}; border-radius: 4px; }';
 document.head.appendChild(style);
 
+class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { hasError: false, error: null }; }
+  static getDerivedStateFromError(error) { return { hasError: true, error }; }
+  render() {
+    if (this.state.hasError) {
+      return <div style={{padding:20, color:'#ef4444', background:'${colors.background}', height:'100%', overflow:'auto', fontFamily:'monospace'}}><h2>App Runtime Error</h2><pre style={{whiteSpace:'pre-wrap'}}>{this.state.error?.toString()}</pre></div>;
+    }
+    return this.props.children;
+  }
+}
+
 const TABS = [${screens.length > 0 
   ? screens.map((s, i) => `{ name: '${s.name}', comp: Screen${i}, icon: '${getEmoji(s.route)}' }`).join(', ')
   : `{ name: 'Home', comp: Fallback, icon: '🏠' }`}];
@@ -208,7 +219,9 @@ export default function App() {
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'100%', backgroundColor:'${colors.background}', fontFamily:'system-ui,sans-serif' }}>
       <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-        <Screen />
+        <ErrorBoundary>
+          <Screen />
+        </ErrorBoundary>
       </div>
       <div style={{ display:'flex', backgroundColor:'${colors.tabBar || colors.background}', borderTop:'1px solid ${colors.border}', padding:'8px 0 12px', flexShrink: 0 }}>
         {TABS.map((tab, i) => (

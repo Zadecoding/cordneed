@@ -1,23 +1,26 @@
 import { InferenceClient } from '@huggingface/inference';
 import { createClient } from '@/lib/supabase/server';
 
-const HF_MODEL = 'black-forest-labs/FLUX.1-schnell';
-const HF_FALLBACK = 'stabilityai/stable-diffusion-xl-base-1.0';
-const IMAGE_TIMEOUT_MS = 25_000;
+// Force HF's own inference servers (hf-inference), NOT third-party providers.
+// Third-party providers (nscale, fal-ai, etc.) require elevated token permissions
+// that a standard read-token doesn't have → produces 403 "insufficient permissions".
+// provider is passed per-call in BaseArgs (not in the constructor).
+const HF_PROVIDER = 'hf-inference' as const;
+
+// Models available on hf-inference free tier
+const HF_MODEL   = 'stabilityai/stable-diffusion-xl-base-1.0'; // most available on free tier
+const HF_FALLBACK = 'runwayml/stable-diffusion-v1-5';           // smaller, faster fallback
+
+const IMAGE_TIMEOUT_MS = 40_000; // HF free inference can be slow (cold start)
 
 async function runTextToImage(
   hf: InferenceClient,
   model: string,
   inputs: string
 ): Promise<Blob> {
-  // The @huggingface/inference textToImage returns Blob by default (no response_format)
-  // We cast via unknown to satisfy the TS overload checker
-  return hf.textToImage({
-    model,
-    inputs,
-    parameters: { width: 512, height: 512 },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } as any) as unknown as Promise<Blob>;
+  // provider in the args (BaseArgs) routes to hf-inference, bypassing third-party providers
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return hf.textToImage({ model, inputs, provider: HF_PROVIDER, parameters: { width: 512, height: 512 } } as any) as unknown as Promise<Blob>;
 }
 
 /** Generate an app icon using Hugging Face and store it in Supabase Storage.
@@ -34,13 +37,14 @@ export async function generateAndStoreAppIcon(
     return null;
   }
 
+  // plain InferenceClient — provider is set per-call in runTextToImage args
   const hf = new InferenceClient(apiKey);
 
   const iconPrompt = [
     `App icon for "${appName}", ${description}.`,
     `Minimalist flat design, bold ${primaryColor} as primary color.`,
     'Clean vector style, rounded square frame, professional mobile app icon.',
-    'No text, no gradients, high contrast, 512x512.',
+    'No text, high contrast, 512x512.',
   ].join(' ');
 
   let blob: Blob | null = null;
@@ -56,7 +60,7 @@ export async function generateAndStoreAppIcon(
     blob = result;
     console.log(`[Images] Icon generated via ${HF_MODEL}`);
   } catch (primaryErr) {
-    console.warn(`[Images] ${HF_MODEL} failed:`, primaryErr);
+    console.warn(`[Images] ${HF_MODEL} failed:`, (primaryErr as Error).message);
 
     // ── Fallback model ───────────────────────────────────────────────────────
     try {
@@ -69,7 +73,7 @@ export async function generateAndStoreAppIcon(
       blob = result;
       console.log(`[Images] Icon generated via fallback ${HF_FALLBACK}`);
     } catch (fallbackErr) {
-      console.warn('[Images] Fallback also failed — skipping icon:', fallbackErr);
+      console.warn('[Images] Fallback also failed — skipping icon:', (fallbackErr as Error).message);
       return null;
     }
   }
@@ -86,10 +90,7 @@ export async function generateAndStoreAppIcon(
 
     const { error: uploadError } = await supabase.storage
       .from('project-assets')
-      .upload(filePath, buffer, {
-        contentType: 'image/png',
-        upsert: true,
-      });
+      .upload(filePath, buffer, { contentType: 'image/png', upsert: true });
 
     if (uploadError) {
       console.error('[Images] Supabase upload failed:', uploadError.message);

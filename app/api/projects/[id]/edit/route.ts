@@ -45,13 +45,17 @@ Make ONLY the changes needed to fulfill the request. Return the minimal set of f
 // ─── Try Gemini first, Mistral fallback ──────────────────────────────────────
 
 async function applyEditsWithGemini(prompt: string): Promise<Record<string, string> | null> {
-  const models = ['gemini-1.5-flash-latest', 'gemini-1.5-pro-latest', 'gemini-2.0-flash'];
+  const models = [
+    'gemini-2.0-flash-lite',    // best free-tier quota
+    'gemini-1.5-flash',         // stable free quota
+    'gemini-1.5-pro',           // higher quality
+  ];
   for (const modelName of models) {
     try {
       const model = genAI.getGenerativeModel({ model: modelName });
       const result = await Promise.race<string>([
         model.generateContent(prompt).then((r) => r.response.text()),
-        new Promise<string>((_, reject) => setTimeout(() => reject(new Error('timeout')), 20_000)),
+        new Promise<string>((_, reject) => setTimeout(() => reject(new Error('timeout')), 22_000)),
       ]);
       return parseEditOutput(result);
     } catch (err) {
@@ -72,7 +76,7 @@ async function applyEditsWithMistral(prompt: string): Promise<Record<string, str
           maxTokens: 8192,
         })
         .then((r) => parseEditOutput(r.choices?.[0]?.message?.content as string ?? '')),
-      new Promise<null>((_, reject) => setTimeout(() => reject(new Error('timeout')), 35_000)),
+      new Promise<null>((_, reject) => setTimeout(() => reject(new Error('timeout')), 50_000)),
     ]);
     return res;
   } catch (err) {

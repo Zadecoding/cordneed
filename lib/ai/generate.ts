@@ -6,17 +6,17 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 const mistral = new Mistral({ apiKey: process.env.MISTRAL_API_KEY! });
 
 // ─── Gemini cascade ────────────────────────────────────────────────────────
-// Models to try in order — verified live from ListModels API 2026-04-20
+// Models verified against ListModels 2026-04-21 — ordered by free-tier quota availability
 const GEMINI_CASCADE = [
-  'gemini-1.5-flash-latest', // most reliable free tier quota
-  'gemini-1.5-pro-latest',
-  'gemini-2.5-flash',       // newer models might have limit: 0 on free tier
-  'gemini-2.0-flash',
+  'gemini-2.0-flash-lite',        // best free-tier quota ('lite' variant)
+  'gemini-1.5-flash',             // stable, good free quota (no -latest suffix)
+  'gemini-1.5-pro',               // higher quality fallback
+  'gemini-2.5-pro-exp-03-25',     // experimental, free while in preview
 ];
 
-// Per-model attempt timeout — keeps total cascade well under Vercel's 60s ceiling
-const GEMINI_TIMEOUT_MS = 18_000; // 18s × 4 attempts = 72s worst case
-const MISTRAL_TIMEOUT_MS = 30_000;
+// Per-model timeout — 2.5 models are slower; total cascade < Vercel 60s ceiling
+const GEMINI_TIMEOUT_MS = 22_000; // 22s × up to 4 = 88s worst case (cascade stops on first success)
+const MISTRAL_TIMEOUT_MS = 55_000; // Mistral large can take 40-50s for big code gen
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 

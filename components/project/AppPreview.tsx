@@ -264,7 +264,7 @@ export default function AppPreview({ projectId, projectName, files }: AppPreview
       </div>
 
       {/* Sandpack Preview */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden [&_.sp-layout]:!h-full [&_.sp-preview]:!h-full [&_.sp-preview-iframe]:!h-full">
         <Sandpack
           key={key}
           files={sandpackFiles}
@@ -274,7 +274,6 @@ export default function AppPreview({ projectId, projectName, files }: AppPreview
             showTabs: false,
             showLineNumbers: false,
             showInlineErrors: true,
-            editorHeight: 0,
             visibleFiles: ['/App.js'],
             activeFile: '/App.js',
             layout: 'preview',

@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Parse dependencies from generated package.json ───────────────────────
-    let dependencies = {};
+    let dependencies: Record<string, any> = {};
     try {
       if (files['package.json']) {
         const pkg = JSON.parse(files['package.json']);

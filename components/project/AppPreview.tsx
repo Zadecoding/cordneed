@@ -109,6 +109,16 @@ function buildSandpackFiles(files: Record<string, string>): Record<string, strin
     '/node_modules/react-native-safe-area-context/index.js': { code: SAFE_AREA_SHIM } as any,
     '/node_modules/expo-status-bar/package.json': { code: '{"name":"expo-status-bar","version":"1.12.1","main":"index.js"}' } as any,
     '/node_modules/expo-status-bar/index.js': { code: `export const StatusBar = () => null;` } as any,
+
+    // Block native libraries and provide visual shims
+    '/node_modules/react-native-chart-kit/package.json': { code: '{"name":"react-native-chart-kit","version":"6.12.0","main":"index.js"}' } as any,
+    '/node_modules/react-native-chart-kit/index.js': { code: `import React from 'react'; export const LineChart = ({width, height, style}) => <div style={{width: width||'100%', height: height||220, background: '#1e293b', borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', ...style}}>📊 Line Chart Placeholder</div>; export const BarChart = LineChart; export const PieChart = LineChart; export const ProgressChart = LineChart; export const ContributionGraph = LineChart; export const StackedBarChart = LineChart;` } as any,
+    '/node_modules/react-native-svg/package.json': { code: '{"name":"react-native-svg","version":"13.4.0","main":"index.js"}' } as any,
+    '/node_modules/react-native-svg/index.js': { code: `export const Svg = () => null; export const Circle = () => null; export const Rect = () => null; export const Path = () => null;` } as any,
+    '/node_modules/expo-linear-gradient/package.json': { code: '{"name":"expo-linear-gradient","version":"12.1.2","main":"index.js"}' } as any,
+    '/node_modules/expo-linear-gradient/index.js': { code: `import React from 'react'; export const LinearGradient = ({colors, style, children, ...props}) => <div style={{background: colors ? \`linear-gradient(180deg, \${colors.join(',')})\` : 'transparent', display: 'flex', flexDirection: 'column', ...style}} {...props}>{children}</div>;` } as any,
+    '/node_modules/react-native-reanimated/package.json': { code: '{"name":"react-native-reanimated","version":"3.6.0","main":"index.js"}' } as any,
+    '/node_modules/react-native-reanimated/index.js': { code: `import { View, Text, ScrollView, Image } from 'react-native'; export default { View, Text, ScrollView, Image }; export const useSharedValue = (v) => ({value: v}); export const useAnimatedStyle = () => ({}); export const withTiming = (v) => v; export const withSpring = (v) => v;` } as any,
   };
 
   // Collect all files (components, constants, screens)
@@ -235,7 +245,8 @@ export default function AppPreview({ projectId, projectName, files }: AppPreview
     const blocked = [
       'react', 'react-dom', 'react-native', 'expo', 'expo-router', 
       'react-native-safe-area-context', '@expo/vector-icons', 
-      'lucide-react-native', 'expo-status-bar'
+      'lucide-react-native', 'expo-status-bar',
+      'react-native-chart-kit', 'react-native-svg', 'react-native-reanimated', 'expo-linear-gradient'
     ];
     
     const safeDeps: Record<string, string> = {
@@ -268,11 +279,6 @@ export default function AppPreview({ projectId, projectName, files }: AppPreview
           safeDeps[pkgName] = 'latest';
         }
       }
-    }
-
-    // Chart kit requires react-native-svg which is complex on web, but this helps it somewhat resolve
-    if (safeDeps['react-native-chart-kit'] && !safeDeps['react-native-svg']) {
-      safeDeps['react-native-svg'] = '13.4.0';
     }
 
     return safeDeps;

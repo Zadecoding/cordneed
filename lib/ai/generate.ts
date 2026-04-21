@@ -16,7 +16,8 @@ const FALLBACK_TIMEOUT = 58_000;
 function buildSystemPrompt(
   prompt: string,
   isPro: boolean,
-  architecture?: AppArchitecture
+  architecture?: AppArchitecture,
+  designLink?: string
 ): string {
   const screens = architecture?.screens ?? ['Home', 'Profile', 'Settings'];
   const features = architecture?.features ?? ['navigation', 'authentication'];
@@ -28,9 +29,13 @@ function buildSystemPrompt(
     i === 0 ? 'index' : s.toLowerCase().replace(/\s+/g, '-')
   );
 
+  const designSection = designLink
+    ? `\nDESIGN REFERENCE URL: ${designLink}\nIMPORTANT: The user has shared a design reference above. Study it and replicate its layout, color palette, spacing, typography, navigation patterns, and component structure as closely as possible in the generated React Native code. The design reference is the PRIMARY guide for all UI decisions.\n`
+    : '';
+
   return `You are an expert React Native / Expo developer. Generate a COMPLETE multi-screen React Native Expo app as JSON.
 
-USER REQUEST: "${prompt}"
+USER REQUEST: "${prompt}"${designSection}
 
 APP: ${appName} | Theme: ${colorTheme} (primary: ${primaryColor})
 Screens: ${screens.join(', ')} | Features: ${features.join(', ')}
@@ -135,9 +140,10 @@ async function callMistral(
 export async function generateReactNativeApp(
   prompt: string,
   isPro: boolean,
-  architecture?: AppArchitecture
+  architecture?: AppArchitecture,
+  designLink?: string
 ): Promise<Record<string, string>> {
-  const systemPrompt = buildSystemPrompt(prompt, isPro, architecture);
+  const systemPrompt = buildSystemPrompt(prompt, isPro, architecture, designLink);
 
   // 1. Try mistral-small (fast)
   try {

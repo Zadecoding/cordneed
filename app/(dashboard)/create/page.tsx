@@ -273,6 +273,7 @@ export default function CreatePage() {
   const router = useRouter();
   const [prompt, setPrompt] = useState('');
   const [appName, setAppName] = useState('');
+  const [designLink, setDesignLink] = useState('');
   const [phase, setPhase] = useState<Phase>('idle');
   const [architecture, setArchitecture] = useState<AppArchitecture | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
@@ -333,6 +334,7 @@ export default function CreatePage() {
           prompt: prompt.trim(),
           name: appName.trim() || arch?.suggestedName || undefined,
           architecture: arch ?? architecture,
+          designLink: designLink.trim() || undefined,
         }),
       });
 
@@ -649,6 +651,52 @@ export default function CreatePage() {
                 {prompt.length}
               </span>
             </div>
+          </div>
+
+          {/* Design Reference Link */}
+          <div>
+            <label style={{ display: 'block', color: '#fff', fontSize: '14px', fontWeight: 600, marginBottom: '8px' }}>
+              Design Reference{' '}
+              <span style={{ color: '#475569', fontWeight: 400 }}>(optional — paste a Figma, Stitch, or any design URL)</span>
+            </label>
+            <div
+              style={{
+                display: 'flex', alignItems: 'center', gap: '10px',
+                background: 'rgba(255,255,255,0.03)',
+                border: `1px solid ${designLink ? 'rgba(99,102,241,0.5)' : 'rgba(255,255,255,0.07)'}`,
+                borderRadius: '12px', padding: '10px 14px',
+                transition: 'border-color 0.2s',
+              }}
+            >
+              <span style={{ fontSize: '18px', flexShrink: 0, lineHeight: 1 }}>🎨</span>
+              <input
+                id="design-link"
+                type="url"
+                value={designLink}
+                onChange={(e) => setDesignLink(e.target.value)}
+                placeholder="https://www.figma.com/design/... or https://stitch.withgoogle.com/..."
+                style={{
+                  flex: 1, background: 'transparent', border: 'none', outline: 'none',
+                  color: '#e2e8f0', fontSize: '14px', fontFamily: 'inherit',
+                  minWidth: 0,
+                }}
+              />
+              {designLink && (
+                <button
+                  type="button"
+                  onClick={() => setDesignLink('')}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#475569', padding: '2px', flexShrink: 0 }}
+                  title="Clear"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+            {designLink && (
+              <p style={{ color: '#818cf8', fontSize: '12px', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                ✓ AI will use this design as a visual reference for layout, colors &amp; components
+              </p>
+            )}
           </div>
 
           {/* App Name */}

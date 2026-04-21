@@ -17,10 +17,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
-    const { prompt, name, architecture } = (await request.json()) as {
+    const { prompt, name, architecture, designLink } = (await request.json()) as {
       prompt: string;
       name?: string;
       architecture?: AppArchitecture;
+      designLink?: string;
     };
 
     if (!prompt?.trim()) {
@@ -92,7 +93,7 @@ export async function POST(request: NextRequest) {
     // ── Generate code (Gemini → Mistral → template) ─────────────────────────
     let files: Record<string, string>;
     try {
-      files = await generateReactNativeApp(prompt.trim(), isPro, architecture);
+      files = await generateReactNativeApp(prompt.trim(), isPro, architecture, designLink?.trim());
     } catch (aiError) {
       await supabase.from('projects').update({ status: 'error' }).eq('id', project.id);
       throw aiError;

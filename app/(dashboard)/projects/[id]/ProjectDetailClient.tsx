@@ -165,7 +165,7 @@ export default function ProjectDetailClient({ project, files: initialFiles, isPr
       ) : mainTab === 'preview' ? (
         /* ── Preview Tab ─────────────────────────────────────────────────────── */
         <div className='flex-1 overflow-hidden'>
-          <AppPreview files={files} projectName={project.name} />
+          <AppPreview projectId={project.id} projectName={project.name} files={files} />
         </div>
       ) : (
         /* ── Code Tab ────────────────────────────────────────────────────────── */

@@ -152,7 +152,7 @@ export default function PricingPageClient({ currentPlan, isLoggedIn }: Props) {
               </div>
             </div>
             <div className="mb-5">
-              <span className="text-3xl font-bold text-white">₹499</span>
+              <span className="text-3xl font-bold text-white">₹1499</span>
               <span className="text-slate-400 text-sm">/month</span>
             </div>
             <ul className="space-y-2.5 mb-6">

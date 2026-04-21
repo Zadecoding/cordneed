@@ -32,8 +32,8 @@ export async function POST(request: NextRequest) {
       key_secret: process.env.RAZORPAY_KEY_SECRET,
     });
 
-    // ₹499/month in paise
-    const amount = 49900;
+    // ₹1499/month in paise
+    const amount = 149900;
 
     const order = await razorpay.orders.create({
       amount,

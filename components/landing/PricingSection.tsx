@@ -19,7 +19,7 @@ const plans = [
   {
     name: 'Pro',
     Icon: Crown,
-    price: '₹499',
+    price: '₹1499',
     period: 'per month',
     description: 'For serious builders and professionals',
     features: ['Unlimited projects', 'Priority generation (3x faster)', 'ZIP download export', 'No watermark', 'Premium templates', 'Advanced Expo Router setup', 'Authentication scaffolding', 'Priority email support'],

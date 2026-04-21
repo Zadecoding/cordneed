@@ -86,7 +86,7 @@ export default function Sidebar({ mobile, onClose, plan = 'free' }: SidebarProps
             <p className="text-xs text-slate-500 mb-3">Unlimited apps, ZIP export, no watermark</p>
             <Link href="/pricing" className="no-underline">
               <button className="btn-primary w-full py-2 rounded-xl text-xs font-semibold">
-                Upgrade — ₹499/mo
+                Upgrade — ₹1499/mo
               </button>
             </Link>
           </div>

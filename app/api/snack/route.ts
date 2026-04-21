@@ -27,6 +27,24 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Expo Snack strictly requires an App.js/App.tsx physically present.
+    // Since we generate Expo Router apps (which use app/_layout.tsx), we must inject the router bootstrapper.
+    if (!code['App.js'] && !code['App.tsx']) {
+      code['App.js'] = { type: 'CODE', contents: "import 'expo-router/entry';" };
+    }
+
+    // Ensure critical Expo Router dependencies are present so Snack doesn't fail compilation
+    dependencies = {
+      "expo-router": { version: "*" },
+      "expo-constants": { version: "*" },
+      "react-native-screens": { version: "*" },
+      "react-native-safe-area-context": { version: "*" },
+      "@react-navigation/native": { version: "*" },
+      "expo-status-bar": { version: "*" },
+      "@expo/vector-icons": { version: "*" },
+      ...dependencies,
+    };
+
     // ── Call official Expo Snack API ──────────────────────────────────────────
     const response = await fetch('https://exp.host/--/api/v2/snack/save', {
       method: 'POST',

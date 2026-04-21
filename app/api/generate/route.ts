@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { generateReactNativeApp } from '@/lib/ai/generate';
+import { generateAndStoreAppIcon } from '@/lib/ai/images';
+import type { AppArchitecture } from '@/lib/ai/architect';
+
 export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
@@ -14,13 +17,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
-    const { prompt, name } = await request.json();
+    const { prompt, name, architecture } = (await request.json()) as {
+      prompt: string;
+      name?: string;
+      architecture?: AppArchitecture;
+    };
 
     if (!prompt?.trim()) {
       return NextResponse.json({ message: 'Prompt is required' }, { status: 400 });
     }
 
-    // Get subscription
+    // ── Subscription check ──────────────────────────────────────────────────
     const { data: subscription } = await supabase
       .from('subscriptions')
       .select('plan')
@@ -30,7 +37,7 @@ export async function POST(request: NextRequest) {
     const plan = subscription?.plan || 'free';
     const isPro = plan === 'pro' || user.email === 'imsanju4141@gmail.com';
 
-    // Enforce free plan limits (2 projects per month)
+    // ── Free plan quota ─────────────────────────────────────────────────────
     if (!isPro) {
       const now = new Date();
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
@@ -52,9 +59,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Generate app name from prompt if not provided
+    // ── Derive app name ─────────────────────────────────────────────────────
     const appName =
       name?.trim() ||
+      architecture?.suggestedName ||
       prompt
         .split(' ')
         .slice(1, 5)
@@ -64,7 +72,7 @@ export async function POST(request: NextRequest) {
         .trim() ||
       'My App';
 
-    // Create project record with pending status
+    // ── Create project record ───────────────────────────────────────────────
     const { data: project, error: createError } = await supabase
       .from('projects')
       .insert({
@@ -81,20 +89,32 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Failed to create project' }, { status: 500 });
     }
 
-    // Generate code with Gemini
+    // ── Generate code (Gemini → Mistral → template) ─────────────────────────
     let files: Record<string, string>;
     try {
-      files = await generateReactNativeApp(prompt.trim(), isPro);
+      files = await generateReactNativeApp(prompt.trim(), isPro, architecture);
     } catch (aiError) {
-      // Mark as error
-      await supabase
-        .from('projects')
-        .update({ status: 'error' })
-        .eq('id', project.id);
+      await supabase.from('projects').update({ status: 'error' }).eq('id', project.id);
       throw aiError;
     }
 
-    // Save generated files
+    // ── Generate app icon (non-blocking — fire & forget) ────────────────────
+    // We don't await this so it doesn't add to latency; it updates the row when done.
+    generateAndStoreAppIcon(
+      project.id,
+      appName,
+      architecture?.description ?? prompt.slice(0, 80),
+      architecture?.primaryColor ?? '#6C3DE8'
+    )
+      .then(async (iconUrl) => {
+        if (iconUrl) {
+          await supabase.from('projects').update({ icon_url: iconUrl }).eq('id', project.id);
+          console.log(`[Generate] Icon stored for project ${project.id}: ${iconUrl}`);
+        }
+      })
+      .catch((err) => console.warn('[Generate] Icon gen error (non-fatal):', err));
+
+    // ── Save generated files ────────────────────────────────────────────────
     const { error: updateError } = await supabase
       .from('projects')
       .update({

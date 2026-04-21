@@ -251,8 +251,27 @@ export default function AppPreview({ projectId, projectName, files }: AppPreview
       }
     }
 
+    // Auto-detect from source files (critical if AI missed package.json)
+    for (const [path, content] of Object.entries(files)) {
+      if (typeof content !== 'string' || !path.match(/\.(tsx|ts|js|jsx)$/)) continue;
+      
+      const imports = Array.from(content.matchAll(/import\s+[\s\S]*?from\s+['"]([^'".\/][^"']*)['"]/g));
+      for (const match of imports) {
+        let pkgName = match[1];
+        if (pkgName.startsWith('@')) {
+          pkgName = pkgName.split('/').slice(0, 2).join('/');
+        } else {
+          pkgName = pkgName.split('/')[0];
+        }
+        
+        if (!blocked.includes(pkgName) && !safeDeps[pkgName]) {
+          safeDeps[pkgName] = 'latest';
+        }
+      }
+    }
+
     // Chart kit requires react-native-svg which is complex on web, but this helps it somewhat resolve
-    if (deps['react-native-chart-kit'] && !safeDeps['react-native-svg']) {
+    if (safeDeps['react-native-chart-kit'] && !safeDeps['react-native-svg']) {
       safeDeps['react-native-svg'] = '13.4.0';
     }
 

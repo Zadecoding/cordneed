@@ -6,6 +6,13 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+// Debug helper: show all file paths so we know the data structure
+function buildDebugPage(projectName: string, files: Record<string, string>): string {
+  const paths = Object.keys(files).sort().map(p => `<li>${p}</li>`).join('');
+  return `<!DOCTYPE html><html><body style="background:#0f172a;color:#f1f5f9;font-family:monospace;padding:20px">
+<h2>${projectName} - File Paths</h2><ul>${paths}</ul></body></html>`;
+}
+
 function transformScreenCode(code: string): string {
   // Remove TypeScript type imports
   code = code.replace(/^import\s+type\s+.*;\n?/gm, '');
@@ -194,6 +201,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const debug = request.nextUrl.searchParams.get('debug') === '1';
 
   const { data: project, error: projectError } = await supabase
     .from('projects')
@@ -207,14 +215,20 @@ export async function GET(
     });
   }
 
-  const { data: fileRows } = await supabase
-    .from('project_files')
-    .select('path, content')
-    .eq('project_id', id);
+  // Files are stored as a JSONB column on the projects table
+  const files: Record<string, string> = project.files || {};
 
-  const files: Record<string, string> = {};
-  for (const row of fileRows || []) {
-    files[row.path] = row.content;
+  if (Object.keys(files).length === 0) {
+    return new NextResponse('<html><body style="background:#0f172a;color:#f59e0b;display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;flex-direction:column;gap:12px"><h2>No files found</h2><p>The project may still be generating.</p></body></html>', {
+      status: 200, headers: { 'Content-Type': 'text/html' },
+    });
+  }
+
+  // Debug mode: show all file paths
+  if (debug) {
+    return new NextResponse(buildDebugPage(project.name, files), {
+      status: 200, headers: { 'Content-Type': 'text/html' },
+    });
   }
 
   const html = buildHTML(files, project.name);
@@ -224,7 +238,7 @@ export async function GET(
     headers: {
       'Content-Type': 'text/html; charset=utf-8',
       'Cache-Control': 'no-store',
-      'X-Frame-Options': 'SAMEORIGIN',
     },
   });
 }
+

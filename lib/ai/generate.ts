@@ -17,7 +17,8 @@ function buildSystemPrompt(
   prompt: string,
   isPro: boolean,
   architecture?: AppArchitecture,
-  designLink?: string
+  designLink?: string,
+  designContent?: string
 ): string {
   const screens = architecture?.screens ?? ['Home', 'Profile', 'Settings'];
   const features = architecture?.features ?? ['navigation', 'authentication'];
@@ -29,13 +30,18 @@ function buildSystemPrompt(
     i === 0 ? 'index' : s.toLowerCase().replace(/\s+/g, '-')
   );
 
-  const designSection = designLink
-    ? `\nDESIGN REFERENCE URL: ${designLink}\nIMPORTANT: The user has shared a design reference above. Study it and replicate its layout, color palette, spacing, typography, navigation patterns, and component structure as closely as possible in the generated React Native code. The design reference is the PRIMARY guide for all UI decisions.\n`
-    : '';
+  let designSection = '';
+  if (designLink) {
+    if (designContent) {
+      designSection = `\nDESIGN REFERENCE URL: ${designLink}\nExtracted Content from Design Link:\n"""\n${designContent}\n"""\n\nIMPORTANT: The user has shared a design reference above. You MUST replicate its layout, features, color palette, typography, navigation patterns, and component structure as closely as possible in the generated React Native code. The design reference is the PRIMARY guide for all UI decisions.`;
+    } else {
+      designSection = `\nDESIGN REFERENCE URL: ${designLink}\nIMPORTANT: The user has shared a design reference above. Study it and replicate its layout, color palette, spacing, typography, navigation patterns, and component structure as closely as possible in the generated React Native code. The design reference is the PRIMARY guide for all UI decisions.`;
+    }
+  }
 
   return `You are an expert React Native / Expo developer. Generate a COMPLETE multi-screen React Native Expo app as JSON.
 
-USER REQUEST: "${prompt}"${designSection}
+USER REQUEST: "${prompt}"${designSection ? '\n' + designSection + '\n' : ''}
 
 APP: ${appName} | Theme: ${colorTheme} (primary: ${primaryColor})
 Screens: ${screens.join(', ')} | Features: ${features.join(', ')}
@@ -137,13 +143,38 @@ async function callMistral(
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
+async function fetchDesignContent(url: string): Promise<string> {
+  console.log(`[AI] Fetching design content from: ${url}`);
+  try {
+    const res = await fetch(`https://r.jina.ai/${encodeURIComponent(url)}`, {
+      method: "GET",
+      headers: { "Accept": "text/plain" },
+      signal: AbortSignal.timeout(5000), // don't hang if site is slow
+    });
+    if (res.ok) {
+      const text = await res.text();
+      console.log(`[AI] Successfully fetched design content (${text.length} chars)`);
+      // Limit to ~8000 characters to leave room for the rest of the prompt
+      return text.slice(0, 8000);
+    }
+  } catch (err) {
+    console.warn("[AI] Failed to fetch design link content:", err);
+  }
+  return "";
+}
+
 export async function generateReactNativeApp(
   prompt: string,
   isPro: boolean,
   architecture?: AppArchitecture,
   designLink?: string
 ): Promise<Record<string, string>> {
-  const systemPrompt = buildSystemPrompt(prompt, isPro, architecture, designLink);
+  let designContent = "";
+  if (designLink && designLink.trim().length > 0) {
+    designContent = await fetchDesignContent(designLink.trim());
+  }
+
+  const systemPrompt = buildSystemPrompt(prompt, isPro, architecture, designLink, designContent);
 
   // 1. Try mistral-small (fast)
   try {

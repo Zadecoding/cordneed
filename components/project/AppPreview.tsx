@@ -120,36 +120,63 @@ function buildSandpackFiles(files: Record<string, string>): Record<string, strin
   const result: Record<string, string> = {
     '/react-native.js': { code: RN_SHIM } as any,
     '/react-native-safe-area-context.js': { code: SAFE_AREA_SHIM } as any,
+    '/expo-status-bar.js': { code: `export const StatusBar = () => null;` } as any,
+    '/vector-icons.js': { code: `import React from 'react';\nexport const Ionicons = ({ color, size, style }) => <span style={{ color, fontSize: size, display: 'inline-block', lineHeight: 1, ...style }}>💠</span>;\nexport const MaterialIcons = Ionicons;\nexport const FontAwesome = Ionicons;\nexport const Feather = Ionicons;` } as any,
   };
 
-  // Collect all non-routing support files (constants, components)
+  // Collect all files (components, constants, screens)
+  const screens: { route: string; name: string; path: string }[] = [];
+
   for (const [path, content] of Object.entries(files)) {
     if (typeof content !== 'string') continue;
-    if (path.startsWith('app/') || path.startsWith('.') || path.endsWith('.png') || path.endsWith('.jpg')) continue;
-    if (['package.json', 'app.json', 'tsconfig.json', 'babel.config.js', '.gitignore'].includes(path)) continue;
+    if (path.startsWith('.') || path.endsWith('.png') || path.endsWith('.jpg')) continue;
+    if (['package.json', 'app.json', 'tsconfig.json', 'babel.config.js'].includes(path)) continue;
 
-    const jsPath = '/' + path.replace(/\.tsx?$/, '.js');
+    // Track tab screens for the navigator
+    const match = path.match(/^app\/\(tabs\)\/(.+)\.(tsx|ts|js|jsx)$/);
+    if (match && match[1] !== '_layout') {
+      const route = match[1];
+      const name = route === 'index' ? 'Home' : route.charAt(0).toUpperCase() + route.slice(1).replace(/-/g, ' ');
+      screens.push({ route, name, path: '/' + path.replace(/\.(tsx|ts|jsx)$/, '.js') });
+    }
+
+    // Skip Expo Router layout files as we use a custom App.js
+    if (path.includes('_layout')) continue;
+
+    const jsPath = '/' + path.replace(/\.(tsx|ts|jsx)$/, '.js');
     let code = content
-      .replace(/@\//g, './')
-      .replace(/from\s+['"]react-native-safe-area-context['"]/g, "from './react-native-safe-area-context'")
-      .replace(/from\s+['"]react-native['"]/g, "from './react-native'")
-      .replace(/from\s+['"]@expo\/vector-icons['"]/g, "from '@expo/vector-icons-web'");
+      // Remove all Expo Router imports gracefully without deleting the rest of the line unecessarily
+      .replace(/import\s+.*?from\s+['"]expo-router['"];?\n?/gm, '')
+      // Some components might use Link from expo-router, we'll replace it with a dummy Fragment or TouchableOpacity
+      .replace(/<Link\b[^>]*>/g, '<TouchableOpacity>')
+      .replace(/<\/Link>/g, '</TouchableOpacity>')
+      
+      // Fix paths and shims
+      .replace(/@\//g, '../'.repeat(path.split('/').length - 1 || 1))
+      .replace(/from\s+['"]react-native-safe-area-context['"]/g, "from 'react-native-safe-area-context'")
+      .replace(/from\s+['"]react-native['"]/g, "from 'react-native'")
+      .replace(/from\s+['"]@expo\/vector-icons['"]/g, "from 'vector-icons'")
+      .replace(/from\s+['"]lucide-react-native['"]/g, "from 'vector-icons'")
+      .replace(/from\s+['"]expo-status-bar['"]/g, "from 'expo-status-bar'");
+
+    // For any remaining file, rewrite import paths that point to our shims so Sandpack resolves them from root.
+    // e.g., 'react-native' -> '/react-native.js'
+    code = code.replace(/from\s+['"](react-native|react-native-safe-area-context|vector-icons|expo-status-bar)['"]/g, "from '/$1.js'");
 
     result[jsPath] = { code: stripTypes(code) } as any;
   }
 
-  // Extract tab screens and build the App
-  const screens: { route: string; name: string; content: string }[] = [];
-  for (const [path, content] of Object.entries(files)) {
-    const match = path.match(/^app\/\(tabs\)\/(.+)\.(tsx|ts|js)$/);
-    if (match && match[1] !== '_layout') {
-      const route = match[1];
-      const name = route === 'index' ? 'Home' : route.charAt(0).toUpperCase() + route.slice(1).replace(/-/g, ' ');
-      screens.push({ route, name, content });
-    }
-  }
+  // Fallback styling
+  const [colors] = (() => {
+    const c: Record<string, string> = {
+      primary: '#6C3DE8', background: '#0f172a', surface: '#1e293b',
+      border: '#334155', text: '#f1f5f9', textMuted: '#94a3b8', tabBar: '#0a1628',
+    };
+    const cf = files['constants/Colors.ts'] || files['constants/colors.ts'] || '';
+    for (const m of cf.matchAll(/(\w+):\s*['"]([^'"]+)['"]/g)) c[m[1]] = m[2];
+    return [c];
+  })();
 
-  // Build App.js
   const iconMap: Record<string, string> = {
     home: '🏠', explore: '🔍', profile: '👤', account: '👤', settings: '⚙️',
     chat: '💬', feed: '📰', search: '🔍', favorites: '❤️', cart: '🛒',
@@ -160,67 +187,33 @@ function buildSandpackFiles(files: Record<string, string>): Record<string, strin
     return '📱';
   }
 
-  const [colors] = (() => {
-    const c: Record<string, string> = {
-      primary: '#6C3DE8', background: '#0f172a', surface: '#1e293b',
-      border: '#334155', text: '#f1f5f9', textMuted: '#94a3b8', tabBar: '#0a1628',
-    };
-    const cf = files['constants/Colors.ts'] || '';
-    for (const m of cf.matchAll(/(\w+):\s*['"]([^'"]+)['"]/g)) c[m[1]] = m[2];
-    return [c];
-  })();
-
-  const screenBlocks = screens.map(({ route, name, content }) => {
-    const compName = name.replace(/\s+/g, '') + 'Screen';
-    let body = content
-      .replace(/^import[\s\S]*?from\s+['"][^'"]+['"];\n?/gm, '')
-      .replace(/^import\s+['"][^'"]+['"];\n?/gm, '')
-      .replace(/@\//g, './')
-      .replace(/export\s+default\s+function\s+\w+\s*\(/g, `function ${compName}(`)
-      .replace(/export\s+default\s+function\s*\(/g, `function ${compName}(`)
-      .replace(/export\s+default\s+\w+;?\s*$/m, '')
-      .replace(/^export\s+(const|function|class)\s/gm, '$1 ');
-    return { compName, name, route, body: stripTypes(body) };
-  });
-
-  const fallbackScreen = `
-function HomeScreen() {
-  return (
-    <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:12, backgroundColor:'${colors.background}', minHeight:'100%' }}>
-      <span style={{ fontSize:48 }}>📱</span>
-      <span style={{ color:'${colors.text}', fontSize:22, fontWeight:700 }}>App Preview</span>
-      <span style={{ color:'${colors.textMuted}', fontSize:14 }}>Generated by Cordneed</span>
-    </div>
-  );
-}`;
+  // Build the unified App.js
+  const screenImports = screens.map((s, i) => `import Screen${i} from '.${s.path}';`).join('\n');
+  const fallbackScreen = `const Fallback = () => <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:12, backgroundColor:'${colors.background}' }}><span style={{ fontSize:48 }}>📱</span><span style={{ color:'${colors.text}', fontSize:22 }}>App Preview</span></div>;`;
 
   const appJs = `import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Pressable, TextInput, Switch, Image, FlatList, ActivityIndicator, SafeAreaView, StyleSheet, Platform, Dimensions, Animated } from './react-native';
+${screenImports}
+${screens.length === 0 ? fallbackScreen : ''}
 
-// ── Global style ──────────────────────────────────────────────────────────────
+// Global reset & styling
 const style = document.createElement('style');
-style.textContent = '@keyframes spin { to { transform: rotate(360deg); } } * { box-sizing: border-box; } body { margin: 0; background: ${colors.background}; } #root { height: 100vh; display: flex; flex-direction: column; } ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-thumb { background: ${colors.border}; border-radius: 4px; }';
+style.textContent = '@keyframes spin { to { transform: rotate(360deg); } } * { box-sizing: border-box; } body { margin: 0; background: ${colors.background}; } #root { height: 100vh; display: flex; flex-direction: column; overflow: hidden; } ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-thumb { background: ${colors.border}; border-radius: 4px; }';
 document.head.appendChild(style);
 
-const Colors = ${JSON.stringify(colors, null, 2)};
-
-// ── Screen Components ─────────────────────────────────────────────────────────
-${screenBlocks.length > 0 ? screenBlocks.map(s => `// ${s.name}\n${s.body}`).join('\n\n') : fallbackScreen}
-
-// ── Tab Navigator ─────────────────────────────────────────────────────────────
-const TABS = [${screenBlocks.length > 0
-    ? screenBlocks.map(s => `{ name: '${s.name}', comp: ${s.compName}, icon: '${getEmoji(s.route)}' }`).join(', ')
-    : `{ name: 'Home', comp: HomeScreen, icon: '🏠' }`}];
+const TABS = [${screens.length > 0 
+  ? screens.map((s, i) => `{ name: '${s.name}', comp: Screen${i}, icon: '${getEmoji(s.route)}' }`).join(', ')
+  : `{ name: 'Home', comp: Fallback, icon: '🏠' }`}];
 
 export default function App() {
   const [active, setActive] = useState(0);
-  const Screen = TABS[active].comp;
+  const Screen = TABS[active]?.comp || TABS[0].comp;
+
   return (
-    <div style={{ display:'flex', flexDirection:'column', height:'100vh', backgroundColor:'${colors.background}', fontFamily:'system-ui,sans-serif', overflow:'hidden' }}>
-      <div style={{ flex:1, overflow:'hidden', display:'flex', flexDirection:'column' }}>
+    <div style={{ display:'flex', flexDirection:'column', height:'100%', backgroundColor:'${colors.background}', fontFamily:'system-ui,sans-serif' }}>
+      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
         <Screen />
       </div>
-      <div style={{ display:'flex', backgroundColor:'${colors.tabBar || colors.background}', borderTop:'1px solid ${colors.border}', padding:'8px 0 12px' }}>
+      <div style={{ display:'flex', backgroundColor:'${colors.tabBar || colors.background}', borderTop:'1px solid ${colors.border}', padding:'8px 0 12px', flexShrink: 0 }}>
         {TABS.map((tab, i) => (
           <button key={i} onClick={() => setActive(i)} style={{ flex:1, background:'none', border:'none', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:3, padding:'4px 0' }}>
             <span style={{ fontSize:20 }}>{tab.icon}</span>

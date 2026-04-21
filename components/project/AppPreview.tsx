@@ -214,6 +214,42 @@ export default function AppPreview({ projectId, projectName, files }: AppPreview
   const [key, setKey] = useState(0);
 
   const sandpackFiles = useMemo(() => buildSandpackFiles(files), [files, key]);
+  
+  const aiDependencies = useMemo(() => {
+    let deps: Record<string, string> = {};
+    try {
+      if (files['package.json']) {
+        deps = JSON.parse(files['package.json']).dependencies || {};
+      }
+    } catch (e) {}
+
+    // Block native/core modules we are overriding with shims
+    const blocked = [
+      'react', 'react-dom', 'react-native', 'expo', 'expo-router', 
+      'react-native-safe-area-context', '@expo/vector-icons', 
+      'lucide-react-native', 'expo-status-bar'
+    ];
+    
+    const safeDeps: Record<string, string> = {
+      react: '18.2.0',
+      'react-dom': '18.2.0',
+      // Alias react-native to react-native-web so 3rd party libs like chart-kit can resolve it
+      'react-native': 'npm:react-native-web@0.19.10',
+    };
+
+    for (const [k, v] of Object.entries(deps)) {
+      if (!blocked.includes(k)) {
+        safeDeps[k] = v === '*' ? 'latest' : v;
+      }
+    }
+
+    // Chart kit requires react-native-svg which is complex on web, but this helps it somewhat resolve
+    if (deps['react-native-chart-kit'] && !safeDeps['react-native-svg']) {
+      safeDeps['react-native-svg'] = '13.4.0';
+    }
+
+    return safeDeps;
+  }, [files]);
 
   if (!files || Object.keys(files).length === 0) {
     return (
@@ -258,10 +294,7 @@ export default function AppPreview({ projectId, projectName, files }: AppPreview
             layout: 'preview',
           }}
           customSetup={{
-            dependencies: {
-              react: '18.2.0',
-              'react-dom': '18.2.0',
-            },
+            dependencies: aiDependencies,
             entry: '/App.tsx',
           }}
           theme="dark"

@@ -90,17 +90,21 @@ function buildSnackApp(
     const compName = name.replace(/\s+/g, '') + 'Screen';
     const [iconActive, iconInactive] = getIcon(route);
 
-    // Strip existing imports and export default — we'll inline everything into App.js
+    // Strip ALL import statements and export default — we'll inline everything into App.js
     let body = content
-      // strip import lines for expo-router (not needed)
-      .replace(/^import\s+.*from\s+['"]expo-router['"];?\n?/gm, '')
+      // Strip ALL import lines (any "import ... from '...'" pattern, including multi-line)
+      .replace(/^import\s[\s\S]*?from\s+['"][^'"]+['"];?\n?/gm, '')
+      // Also strip bare side-effect imports like: import 'something';
+      .replace(/^import\s+['"][^'"]+['"];?\n?/gm, '')
       // Replace @/ alias with ./ for top-level files
       .replace(/@\//g, './')
       // rename the default export function to our compName
       .replace(/export\s+default\s+function\s+\w+\s*\(/, `function ${compName}(`)
       .replace(/export\s+default\s+function\s*\(/, `function ${compName}(`)
       // strip "export default ComponentName;" style
-      .replace(/export\s+default\s+\w+;?\s*$/, '');
+      .replace(/export\s+default\s+\w+;?\s*$/m, '')
+      // strip any remaining "export " keywords from helper functions/consts
+      .replace(/^export\s+(const|function|class|type|interface)\s/gm, '$1 ');
 
     screenComponents.push(`// ── Screen: ${name} ──────────────────────────────────────\n${body}`);
 

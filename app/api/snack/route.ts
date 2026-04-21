@@ -43,9 +43,22 @@ export async function POST(request: NextRequest) {
       code['App.js'] = { type: 'CODE', contents: "import 'expo-router/entry';" };
     }
 
-    // Ensure critical Expo Router dependencies are present, but DO NOT use "*"
+    const parsedDeps: Record<string, any> = {};
+    for (const [key, val] of Object.entries(dependencies)) {
+      // Exclude core packages that Expo SDK resolves automatically
+      if (['react', 'react-native', 'react-dom', 'react-native-web', 'expo'].includes(key)) continue;
+      
+      const v = typeof val === 'string' ? val : val?.version;
+      // Strip wildcard versions to avoid pulling incompatible unstable packages
+      if (v !== '*' && v !== 'latest') {
+        parsedDeps[key] = { version: v };
+      }
+    }
+
+    // Ensure critical Expo Router dependencies are present, overriding AI's versions
     // Wildcard versions pull incompatible Next/React Native Web packages causing 'n.valueOf' crashes.
     dependencies = {
+      ...parsedDeps, // AI provided versions
       "expo-router": { version: "~3.4.10" },
       "expo-constants": { version: "~15.4.6" },
       "expo-linking": { version: "~6.2.2" },
@@ -53,7 +66,10 @@ export async function POST(request: NextRequest) {
       "react-native-safe-area-context": { version: "4.8.2" },
       "react-native-screens": { version: "~3.29.0" },
       "@expo/vector-icons": { version: "^14.0.0" },
-      ...dependencies, // overrides the fallback with the AI's provided versions if they exist
+      "react-native-web": { version: "~0.19.6" },
+      "react-dom": { version: "18.2.0" },
+      "@expo/metro-runtime": { version: "~3.1.3" },
+      "react-native-svg": { version: "14.1.0" }
     };
 
     // ── Call official Expo Snack API ──────────────────────────────────────────

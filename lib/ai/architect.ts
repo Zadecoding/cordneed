@@ -1,7 +1,7 @@
-import { Mistral } from '@mistralai/mistralai';
+import Groq from 'groq-sdk';
 import { fetchDesignContent } from './generate';
 
-const mistral = new Mistral({ apiKey: process.env.MISTRAL_API_KEY! });
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY! });
 
 export interface AppArchitecture {
   appType: string;
@@ -16,7 +16,7 @@ export interface AppArchitecture {
 
 const ANALYZE_TIMEOUT_MS = 15_000;
 
-/** Use Mistral to decompose a user prompt into an app architecture blueprint */
+/** Use Groq to decompose a user prompt into an app architecture blueprint */
 export async function analyzePrompt(prompt: string, designLink?: string): Promise<AppArchitecture> {
   let designContent = "";
   if (designLink && designLink.trim().length > 0) {
@@ -61,32 +61,32 @@ RULES:
  .high-end
  .mobile-first
  .App Store quality
-8.For every app idea, choose a colorTheme and primaryColor that match the app’s mood and improve visual appeal.
+8.For every app idea, choose a colorTheme and primaryColor that match the app's mood and improve visual appeal.
 9.Do not create a dull, plain, or minimal-only blueprint. Always optimize for a beautiful, engaging, animated interface.
 10.If the idea is vague, infer a strong premium consumer app direction and still return the best possible JSON.
 
 Analyze this app idea: "${prompt}"${designInstructions}`;
 
   const timeoutPromise = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error('Mistral architecture analysis timed out')), ANALYZE_TIMEOUT_MS)
+    setTimeout(() => reject(new Error('Groq architecture analysis timed out')), ANALYZE_TIMEOUT_MS)
   );
 
-  const analyzePromise = mistral.chat
-    .complete({
-      model: 'mistral-small-latest',
+  const analyzePromise = groq.chat.completions
+    .create({
+      model: 'llama-3.3-70b-versatile',
       messages: [{ role: 'user', content: systemPrompt }],
       temperature: 0.3,
-      maxTokens: 512,
+      max_tokens: 512,
     })
     .then((res) => {
       const text = res.choices?.[0]?.message?.content ?? '';
-      return parseArchitecture(text as string, prompt);
+      return parseArchitecture(text, prompt);
     });
 
   try {
     return await Promise.race([analyzePromise, timeoutPromise]);
   } catch (err) {
-    console.warn('[Architect] Mistral failed, using heuristic fallback:', err);
+    console.warn('[Architect] Groq failed, using heuristic fallback:', err);
     return buildFallbackArchitecture(prompt);
   }
 }
@@ -97,6 +97,13 @@ function parseArchitecture(text: string, prompt: string): AppArchitecture {
   if (clean.startsWith('```')) clean = clean.slice(3);
   if (clean.endsWith('```')) clean = clean.slice(0, -3);
   clean = clean.trim();
+
+  // Extract JSON object if surrounded by other text
+  const first = clean.indexOf('{');
+  const last = clean.lastIndexOf('}');
+  if (first !== -1 && last !== -1 && last > first) {
+    clean = clean.slice(first, last + 1);
+  }
 
   try {
     const parsed = JSON.parse(clean);

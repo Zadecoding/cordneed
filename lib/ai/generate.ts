@@ -1,13 +1,13 @@
-import { Mistral } from '@mistralai/mistralai';
+import Groq from 'groq-sdk';
 import type { AppArchitecture } from './architect';
 
-const mistral = new Mistral({ apiKey: process.env.MISTRAL_API_KEY! });
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY! });
 
 // ─── Model config ─────────────────────────────────────────────────────────────
-// mistral-small: faster (~15s), good for structured JSON output
-// mistral-large: slower (~45s), better code quality
-const PRIMARY_MODEL   = 'mistral-small-latest';
-const FALLBACK_MODEL  = 'mistral-large-latest';
+// llama-3.3-70b-versatile: high quality, generous context window
+// llama3-8b-8192: smaller/faster fallback if primary quota is hit
+const PRIMARY_MODEL   = 'llama-3.3-70b-versatile';
+const FALLBACK_MODEL  = 'llama3-8b-8192';
 const PRIMARY_TIMEOUT = 50_000;
 const FALLBACK_TIMEOUT = 58_000;
 
@@ -120,24 +120,23 @@ function parseModelOutput(raw: string, prompt: string): Record<string, string> {
   return generateFallbackTemplate(prompt);
 }
 
-// ─── Mistral caller ───────────────────────────────────────────────────────────
+// ─── Groq caller ─────────────────────────────────────────────────────────────
 
-async function callMistral(
+async function callGroq(
   model: string,
   systemPrompt: string,
   rawPrompt: string
 ): Promise<Record<string, string>> {
-  console.log(`[AI] Mistral trying: ${model}`);
+  console.log(`[AI] Groq trying: ${model}`);
 
-  const text = await mistral.chat
-    .complete({
-      model,
-      messages: [{ role: 'user', content: systemPrompt }],
-      temperature: 0.1,   // low temp = more JSON-consistent output
-      maxTokens: 16000,
-    })
-    .then((r) => (r.choices?.[0]?.message?.content as string) ?? '');
+  const res = await groq.chat.completions.create({
+    model,
+    messages: [{ role: 'user', content: systemPrompt }],
+    temperature: 0.1,   // low temp = more JSON-consistent output
+    max_tokens: 16000,
+  });
 
+  const text = (res.choices?.[0]?.message?.content as string) ?? '';
   return parseModelOutput(text, rawPrompt);
 }
 
@@ -176,27 +175,27 @@ export async function generateReactNativeApp(
 
   const systemPrompt = buildSystemPrompt(prompt, isPro, architecture, designLink, designContent);
 
-  // 1. Try mistral-small (fast)
+  // 1. Try primary model (llama-3.3-70b-versatile — high quality)
   try {
-    const files = await callMistral(PRIMARY_MODEL, systemPrompt, prompt);
+    const files = await callGroq(PRIMARY_MODEL, systemPrompt, prompt);
     const codeFiles = Object.keys(files).filter(k => k.endsWith('.tsx') || k.endsWith('.ts'));
     if (codeFiles.length >= 3) {
-      console.log(`[AI] mistral-small success: ${Object.keys(files).length} files`);
+      console.log(`[AI] ${PRIMARY_MODEL} success: ${Object.keys(files).length} files`);
       return files;
     }
-    console.warn('[AI] mistral-small output thin, trying mistral-large...');
+    console.warn(`[AI] ${PRIMARY_MODEL} output thin, trying fallback...`);
   } catch (err) {
-    console.warn(`[AI] mistral-small failed: ${(err as Error).message}`);
+    console.warn(`[AI] ${PRIMARY_MODEL} failed: ${(err as Error).message}`);
   }
 
-  // 2. Try mistral-large (better quality, slower)
+  // 2. Try fallback model (llama3-8b-8192 — smaller, faster)
   try {
-    const files = await callMistral(FALLBACK_MODEL, systemPrompt, prompt);
-    console.log(`[AI] mistral-large success: ${Object.keys(files).length} files`);
+    const files = await callGroq(FALLBACK_MODEL, systemPrompt, prompt);
+    console.log(`[AI] ${FALLBACK_MODEL} success: ${Object.keys(files).length} files`);
     return files;
   } catch (err) {
-    console.error(`[AI] mistral-large also failed: ${(err as Error).message}`);
-    console.warn('[AI] Both Mistral models failed — using rich fallback template');
+    console.error(`[AI] ${FALLBACK_MODEL} also failed: ${(err as Error).message}`);
+    console.warn('[AI] Both Groq models failed — using rich fallback template');
     return generateFallbackTemplate(prompt, architecture);
   }
 }

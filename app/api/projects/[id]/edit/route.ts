@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { Mistral } from '@mistralai/mistralai';
+import Groq from 'groq-sdk';
 
 export const maxDuration = 300; // Allow maximum Vercel limit for Pro workspaces
 
-const mistral = new Mistral({ apiKey: process.env.MISTRAL_API_KEY! });
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY! });
 
 // ─── Build the targeted-edit prompt ──────────────────────────────────────────
 
@@ -12,7 +12,7 @@ function buildEditPrompt(
   changeRequest: string,
   files: Record<string, string>
 ): string {
-  // Only send the first ~4000 chars of each file to reduce token usage
+  // Only send the first ~2500 chars of each file to reduce token usage
   const filesSummary = Object.entries(files)
     .map(([path, content]) => {
       const preview = content.length > 2500 ? content.slice(0, 2500) + '\n... (truncated)' : content;
@@ -39,7 +39,7 @@ CRITICAL RULES FOR SURGICAL EDITS (FAILURE IS NOT AN OPTION):
 Start your response with { immediately and keep your output as short as possible.`;
 }
 
-// ─── Mistral Edit Call Logic ──────────────────────────────────────────────────
+// ─── Groq Edit Call Logic ─────────────────────────────────────────────────────
 
 function parseEditOutput(raw: string): Record<string, string> | null {
   let text = raw.trim();
@@ -68,21 +68,20 @@ function parseEditOutput(raw: string): Record<string, string> | null {
   return null;
 }
 
-async function callMistralEdit(prompt: string, model: string): Promise<Record<string, string> | null> {
-  console.log(`[Edit] Mistral trying: ${model}`);
+async function callGroqEdit(prompt: string, model: string): Promise<Record<string, string> | null> {
+  console.log(`[Edit] Groq trying: ${model}`);
   try {
-    const text = await mistral.chat
-      .complete({
-        model,
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.1,
-        maxTokens: 12000,
-      })
-      .then((r) => (r.choices?.[0]?.message?.content as string) ?? '');
-    
+    const res = await groq.chat.completions.create({
+      model,
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.1,
+      max_tokens: 12000,
+    });
+
+    const text = (res.choices?.[0]?.message?.content as string) ?? '';
     return parseEditOutput(text);
   } catch (err) {
-    console.warn(`[Edit] Mistral ${model} failed:`, (err as Error).message);
+    console.warn(`[Edit] Groq ${model} failed:`, (err as Error).message);
     return null;
   }
 }
@@ -118,11 +117,17 @@ export async function POST(
 
     const existingFiles = (project.files as Record<string, string>) || {};
 
-    // Build prompt and call AI (Mistral only)
+    // Build prompt and call Groq
     const editPrompt = buildEditPrompt(changeRequest.trim(), existingFiles);
 
-    // Use mistral-small-latest (fastest). Large model is too slow and hits Vercel limits easily.
-    const changedFiles = await callMistralEdit(editPrompt, 'mistral-small-latest');
+    // Use llama-3.3-70b-versatile (fast, high quality, large context)
+    let changedFiles = await callGroqEdit(editPrompt, 'llama-3.3-70b-versatile');
+
+    // Fallback to smaller model if primary fails
+    if (!changedFiles || Object.keys(changedFiles).length === 0) {
+      console.warn('[Edit] Primary model failed, trying llama3-8b-8192...');
+      changedFiles = await callGroqEdit(editPrompt, 'llama3-8b-8192');
+    }
 
     if (!changedFiles || Object.keys(changedFiles).length === 0) {
       return NextResponse.json(

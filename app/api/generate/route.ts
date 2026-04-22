@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Failed to create project' }, { status: 500 });
     }
 
-    // ── Generate code (Gemini → Mistral → template) ─────────────────────────
+    // ── Generate code (Groq llama-3.3-70b → llama3-8b-8192 → template) ──────
     let files: Record<string, string>;
     try {
       files = await generateReactNativeApp(prompt.trim(), isPro, architecture, designLink?.trim());

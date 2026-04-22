@@ -1,15 +1,9 @@
 import { InferenceClient } from '@huggingface/inference';
 import { createClient } from '@/lib/supabase/server';
 
-// Force HF's own inference servers (hf-inference), NOT third-party providers.
-// Third-party providers (nscale, fal-ai, etc.) require elevated token permissions
-// that a standard read-token doesn't have → produces 403 "insufficient permissions".
-// provider is passed per-call in BaseArgs (not in the constructor).
-const HF_PROVIDER = 'hf-inference' as const;
-
-// Models available on hf-inference free tier
-const HF_MODEL   = 'stabilityai/stable-diffusion-xl-base-1.0'; // most available on free tier
-const HF_FALLBACK = 'runwayml/stable-diffusion-v1-5';           // smaller, faster fallback
+// Models accessible via HuggingFace Inference API Serverless
+const HF_MODEL   = 'stabilityai/stable-diffusion-xl-base-1.0'; 
+const HF_FALLBACK = 'black-forest-labs/FLUX.1-schnell'; // High-quality, fast fallback
 
 const IMAGE_TIMEOUT_MS = 40_000; // HF free inference can be slow (cold start)
 
@@ -18,9 +12,9 @@ async function runTextToImage(
   model: string,
   inputs: string
 ): Promise<Blob> {
-  // provider in the args (BaseArgs) routes to hf-inference, bypassing third-party providers
+  // Note: If you encounter 403 'insufficient permissions', ensure your token has Serverless API access
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return hf.textToImage({ model, inputs, provider: HF_PROVIDER, parameters: { width: 512, height: 512 } } as any) as unknown as Promise<Blob>;
+  return hf.textToImage({ model, inputs, parameters: { width: 512, height: 512 } } as any) as unknown as Promise<Blob>;
 }
 
 /** Generate an app icon using Hugging Face and store it in Supabase Storage.

@@ -5,9 +5,9 @@ const groq = new Groq({ apiKey: process.env.GROQ_API_KEY! });
 
 // ─── Model config ─────────────────────────────────────────────────────────────
 // llama-3.3-70b-versatile: high quality, generous context window
-// llama3-8b-8192: smaller/faster fallback if primary quota is hit
+// llama-3.1-8b-instant: active fallback model
 const PRIMARY_MODEL   = 'llama-3.3-70b-versatile';
-const FALLBACK_MODEL  = 'llama3-8b-8192';
+const FALLBACK_MODEL  = 'llama-3.1-8b-instant';
 const PRIMARY_TIMEOUT = 50_000;
 const FALLBACK_TIMEOUT = 58_000;
 
@@ -133,7 +133,7 @@ async function callGroq(
     model,
     messages: [{ role: 'user', content: systemPrompt }],
     temperature: 0.1,   // low temp = more JSON-consistent output
-    max_tokens: 16000,
+    max_tokens: 6000, // Reduced from 16000 to fit under Groq's 12k TPM limit
   });
 
   const text = (res.choices?.[0]?.message?.content as string) ?? '';

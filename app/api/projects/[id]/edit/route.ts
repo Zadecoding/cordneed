@@ -75,7 +75,7 @@ async function callGroqEdit(prompt: string, model: string): Promise<Record<strin
       model,
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.1,
-      max_tokens: 12000,
+      max_tokens: 6000, // Reduced to fit under 12k TPM
     });
 
     const text = (res.choices?.[0]?.message?.content as string) ?? '';
@@ -125,8 +125,8 @@ export async function POST(
 
     // Fallback to smaller model if primary fails
     if (!changedFiles || Object.keys(changedFiles).length === 0) {
-      console.warn('[Edit] Primary model failed, trying llama3-8b-8192...');
-      changedFiles = await callGroqEdit(editPrompt, 'llama3-8b-8192');
+      console.warn('[Edit] Primary model failed, trying llama-3.1-8b-instant...');
+      changedFiles = await callGroqEdit(editPrompt, 'llama-3.1-8b-instant');
     }
 
     if (!changedFiles || Object.keys(changedFiles).length === 0) {

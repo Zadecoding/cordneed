@@ -20,8 +20,8 @@ function buildSystemPrompt(
   designLink?: string,
   designContent?: string
 ): string {
-  const screens = architecture?.screens ?? ['Home', 'Profile', 'Settings'];
-  const features = architecture?.features ?? ['navigation', 'authentication'];
+  const screens = architecture?.screens?.map((s) => s.name) ?? ['Home', 'Profile', 'Settings'];
+  const features = architecture?.features?.map((f) => f.name) ?? ['navigation', 'authentication'];
   const appName = architecture?.suggestedName ?? 'MyApp';
   const colorTheme = architecture?.colorTheme ?? 'dark with purple accents';
   const primaryColor = architecture?.primaryColor ?? '#6C3DE8';
@@ -213,7 +213,7 @@ function generateFallbackTemplate(
   );
   const slug = appName.toLowerCase();
   const primary = arch?.primaryColor ?? '#6C3DE8';
-  const screens = (arch?.screens ?? ['Home', 'Explore', 'Profile', 'Settings']).slice(0, 5);
+  const screens = (arch?.screens?.map((s) => s.name) ?? ['Home', 'Explore', 'Profile', 'Settings']).slice(0, 5);
 
   return {
     'package.json': JSON.stringify({

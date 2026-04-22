@@ -139,7 +139,7 @@ function BlueprintCard({
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
             {arch.screens.map((s) => (
               <span
-                key={s}
+                key={s.name}
                 style={{
                   background: 'rgba(99,102,241,0.1)',
                   border: '1px solid rgba(99,102,241,0.2)',
@@ -149,7 +149,7 @@ function BlueprintCard({
                   fontSize: '12px',
                 }}
               >
-                {s}
+                {s.name}
               </span>
             ))}
           </div>
@@ -173,7 +173,7 @@ function BlueprintCard({
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
             {arch.features.map((f) => (
               <span
-                key={f}
+                key={f.name}
                 style={{
                   background: 'rgba(245,158,11,0.1)',
                   border: '1px solid rgba(245,158,11,0.2)',
@@ -183,7 +183,7 @@ function BlueprintCard({
                   fontSize: '12px',
                 }}
               >
-                {f}
+                {f.name}
               </span>
             ))}
           </div>
